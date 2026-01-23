@@ -14,10 +14,6 @@ COLUMN_ORDER = [
     "avgTotalFuel",
 ]
 
-TEAMS = [
-    "1000",
-]
-
 
 def avg(lst):
     return round(sum(lst) / len(lst), 2) if lst else 0
@@ -25,6 +21,8 @@ def avg(lst):
 
 with open("fetched_data.json", "r") as f:
     fetched_data = json.load(f)
+TEAMS = fetched_data.get("team", {})
+fetched_data = fetched_data.get("root", {})
 print(f"Loaded data for {len(fetched_data)} teams")
 processedData = {
     "teamNumber": TEAMS,
@@ -38,7 +36,7 @@ processedData = {
     "totalFuel": [],
 }
 for team in TEAMS:
-    team_matches = fetched_data.get(team, {})
+    team_matches = fetched_data.get(str(team), {})
     processedData["entries"].append(len(team_matches))
     autoFuels = []
     transitionFuels = []

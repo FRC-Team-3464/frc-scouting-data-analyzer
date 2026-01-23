@@ -149,6 +149,7 @@ for col in boolean_cols:
         colors = []
         for val in data[col]:
             if val is True:
+                
                 colors.append("#00CC00")  # Green
             elif val is False:
                 colors.append("#FFB3B3")  # Light red
