@@ -1,12 +1,9 @@
-from bokeh.io import show, curdoc
-from bokeh.models import ColumnDataSource, DataTable, TableColumn
-from bokeh.layouts import column
-from bokeh.themes import Theme, built_in_themes
 import json
-import random
-from bokeh.models import HTMLTemplateFormatter
+from bokeh.io import show
+from bokeh.models import ColumnDataSource, DataTable, TableColumn, HTMLTemplateFormatter
+from bokeh.layouts import column
 
-# Define the desired column order here. Columns not in this list will appear at the end.
+# Configuration (Keys match the JSON data)
 COLUMN_ORDER = [
     "eventName",
     "team",
@@ -39,7 +36,6 @@ COLUMN_ORDER = [
     "notes",
 ]
 
-
 NUMERIC_GRADIENT_COLUMNS = [
     "transitionFuel",
     "shift1Fuel",
@@ -50,163 +46,114 @@ NUMERIC_GRADIENT_COLUMNS = [
     "endgameFuel",
 ]
 
-try:
-    with open("fetched_data.json", "r") as f:
-        data = json.load(f)
-    data = data.get("root", {})
-    
-    print(f"Loaded data for {len(data)} teams")
 
-    rows = []
-    for teamnum, matches in data.items():
-        for match_id, match_data in matches.items():
-            row = {"team": teamnum, "match": match_id}
+def loadAndFlattenData(filePath):
+    try:
+        with open(filePath, "r") as f:
+            fullData = json.load(f)
 
-            for fieldName, fieldValue in match_data.items():
-                if isinstance(fieldValue, dict):
-                    if "integerValue" in fieldValue:
-                        row[fieldName] = int(fieldValue["integerValue"])
-                    elif "stringValue" in fieldValue:
-                        row[fieldName] = fieldValue["stringValue"]
-                    elif "doubleValue" in fieldValue:
-                        row[fieldName] = float(fieldValue["doubleValue"])
-                    elif "booleanValue" in fieldValue:
-                        row[fieldName] = fieldValue["booleanValue"]
-                    elif "mapValue" in fieldValue and fieldName == "robotError":
-                        mapFields = fieldValue["mapValue"].get("fields", {})
-                        trueErrors = []
-                        for error_name, errorData in mapFields.items():
-                            if (
-                                isinstance(errorData, dict)
-                                and "booleanValue" in errorData
-                            ):
-                                if errorData["booleanValue"] is True:
-                                    trueErrors.append(error_name)
-                        row[fieldName] = ", ".join(trueErrors) if trueErrors else ""
+        rootData = fullData.get("root", {})
+        print(f"Loaded data for {len(rootData)} teams")
+
+        rows = []
+        for teamNum, matches in rootData.items():
+            for matchId, matchFields in matches.items():
+                # Start row with identifiers
+                row = {"team": teamNum, "match": matchId}
+
+                # Iterate fields
+                for key, value in matchFields.items():
+                    # Special handling for robotError if it's a dict of booleans
+                    if key == "robotError" and isinstance(value, dict):
+                        trueErrors = [k for k, v in value.items() if v is True]
+                        row[key] = ", ".join(trueErrors)
                     else:
-                        row[fieldName] = str(fieldValue)
+                        row[key] = value
+                rows.append(row)
+        return rows
+    except Exception as e:
+        print(f"Error loading JSON: {e}")
+        return []
+
+
+allRows = loadAndFlattenData("fetched_data.json")
+
+if allRows:
+    # 1. Determine Columns
+    allKeys = set().union(*(row.keys() for row in allRows))
+    orderedCols = [c for c in COLUMN_ORDER if c in allKeys]
+    otherCols = sorted(list(allKeys - set(COLUMN_ORDER)))
+    finalColumns = orderedCols + otherCols
+
+    # 2. Build Data Dictionary for Bokeh
+    plotData = {col: [row.get(col, "") for row in allRows] for col in finalColumns}
+
+    # 3. Logic for Gradients
+    for col in NUMERIC_GRADIENT_COLUMNS:
+        if col in plotData:
+            vals = [float(v) if v not in ["", None] else 0 for v in plotData[col]]
+            maxV = max(vals) if vals and max(vals) > 0 else 1
+
+            colors = []
+            for v in vals:
+                ratio = min(max(v / maxV, 0), 1)
+                r = int(255 - (75 * ratio))
+                g = int(180 + (75 * ratio))
+                colors.append(f"rgb({r}, {g}, 180)")
+            # Using camelCase for the color reference key
+            plotData[f"{col}Color"] = colors
+
+    # 4. Logic for Booleans
+    for col in finalColumns:
+        if col not in NUMERIC_GRADIENT_COLUMNS:
+            colors = []
+            for val in plotData[col]:
+                if val is True:
+                    colors.append("#d4edda")  # Light Green
+                elif val is False:
+                    colors.append("#f8d7da")  # Light Red
                 else:
-                    row[fieldName] = fieldValue
+                    colors.append("white")
+            plotData[f"{col}Color"] = colors
 
-            rows.append(row)
+    source = ColumnDataSource(plotData)
 
-    if rows:
-        allColumns = set()
-        for row in rows:
-            allColumns.update(row.keys())
-
-        orderedColumns = [col for col in COLUMN_ORDER if col in allColumns]
-        remainingColumns = sorted(
-            [col for col in allColumns if col not in COLUMN_ORDER]
+    # 5. Build Table Columns with Formatters
+    tableColumns = []
+    for col in finalColumns:
+        # Note: The template now references <%= colColor %>
+        formatter = HTMLTemplateFormatter(
+            template=f"""
+            <div style="background-color: <%= {col}Color %>; 
+                        padding: 4px; margin: -4px; height: 100%;">
+                <%= value %>
+            </div>
+        """
         )
-        allColumns = orderedColumns + remainingColumns
 
-        data = {col: [] for col in allColumns}
-        for row in rows:
-            for col in allColumns:
-                data[col].append(row.get(col, ""))
+        colWidth = 250 if col in ["notes", "robotError", "eventName"] else 100
+        tableColumns.append(
+            TableColumn(field=col, title=col, formatter=formatter, width=colWidth)
+        )
 
-        print(f"Created table with {len(rows)} rows and {len(allColumns)} columns")
-        print(f"Columns: {allColumns}")
+    # 6. Dynamic Sizing
+    numRows = len(allRows)
+    numCols = len(finalColumns)
 
-except FileNotFoundError:
-    print("data.json not found.")
-except json.JSONDecodeError:
-    print("Error parsing data.json.")
+    dynamicHeight = max(400, min(numRows * 30 + 50, 800))
+    dynamicWidth = max(1200, numCols * 100)
 
+    # 7. Create Layout
+    dataTable = DataTable(
+        source=source,
+        columns=tableColumns,
+        width=dynamicWidth,
+        height=dynamicHeight,
+        sortable=True,
+        editable=False,
+        index_position=0,
+    )
 
-from bokeh.models import CellFormatter, HTMLTemplateFormatter
-from bokeh.palettes import RdYlGn
-
-# Generate color columns for gradient coloring
-for col in NUMERIC_GRADIENT_COLUMNS:
-    if col in allColumns and col in data:
-        numericValues = [
-            float(v)
-            for v in data.get(col, [])
-            if v and isinstance(v, (int, float, str))
-        ]
-        maxv = max(numericValues) if numericValues else 100
-
-        colors = []
-        for val in data[col]:
-            try:
-                v = float(val) if val else 0
-                ratio = min(max(v / maxv, 0), 1)  # Clamp between 0 and 1
-                # Light red to light green gradient
-                red = int(255 - 105 * ratio)  # 255 to 150
-                green = int(150 + 105 * ratio)  # 150 to 255
-                blue = 150
-                colors.append(f"rgb({red}, {green}, {blue})")
-            except (ValueError, TypeError):
-                colors.append("rgb(200, 200, 200)")
-        data[f"{col}_color"] = colors
-
-# Generate color columns for boolean coloring
-boolean_cols = [col for col in allColumns if col not in NUMERIC_GRADIENT_COLUMNS]
-for col in boolean_cols:
-    if col in data:
-        colors = []
-        for val in data[col]:
-            if val is True:
-                
-                colors.append("#00CC00")  # Green
-            elif val is False:
-                colors.append("#FFB3B3")  # Light red
-            else:
-                colors.append("white")  # White
-        data[f"{col}_color"] = colors
-
-source = ColumnDataSource(data)
-
-columns = []
-for col in allColumns:
-    colWidth = 800 if (col == "robotError" or col == "eventName") else None
-    colKwargs = {"field": col, "title": col}
-
-    if f"{col}_color" in data:
-        template = f'<div style="background-color: <%=  {col}_color %>; padding: 5px;"><%= {col} %></div>'
-        colKwargs["formatter"] = HTMLTemplateFormatter(template=template)
-
-    if colWidth:
-        colKwargs["width"] = colWidth
-
-    columns.append(TableColumn(**colKwargs))
-
-rows = len(next(iter(data.values()))) if data else 7
-cols = len(data.keys())
-
-height = max(400, min(rows * 30 + 50, 800))
-
-width = max(1200, cols * 80)
-
-table = DataTable(
-    source=source,
-    columns=columns,
-    width=width,
-    height=height,
-    index_position=0,
-    sortable=True,
-    selectable=True,
-)
-
-layout = column(table)
-
-
-from bokeh.models import CustomJS
-
-css = """
-<style>
-.bk-root .bk-data-table .slick-row {
-    border-bottom: 1px solid #cccccc;
-}
-.bk-root .bk-data-table .slick-cell {
-    border-right: 1px solid #cccccc;
-}
-.bk-root .bk-data-table .slick-header-column {
-    border-right: 1px solid #999999;
-}
-</style>
-"""
-
-show(layout)
+    show(column(dataTable))
+else:
+    print("No data to display.")

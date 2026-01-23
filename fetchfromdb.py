@@ -1,8 +1,12 @@
 import requests
 import json
+import logger
+import traceback
+import sys
 
+logger.clear()
 
-def get_value(field):
+def getValue(field):
     if isinstance(field, dict):
         if "integerValue" in field:
             return int(field["integerValue"])
@@ -12,7 +16,7 @@ def get_value(field):
             return field["booleanValue"]
         elif "arrayValue" in field:
             values = field["arrayValue"].get("values", [])
-            return [get_value(val) for val in values]
+            return [getValue(val) for val in values]
     return 0
 
 
@@ -20,162 +24,185 @@ def get_value(field):
 try:
     with open("serviceAccountKey.json", "r") as f:
         config = json.load(f)
-    API_KEY = config.get("apiKey")
-    PROJECT_ID = config.get("projectId")
-    print("Credentials loaded successfully from serviceAccountKey.json")
+    apiKey = config.get("apiKey")
+    projectId = config.get("projectId")
+    logger.log("Credentials loaded successfully from serviceAccountKey.json")
 except FileNotFoundError:
-    print("Error: Service account key file not found.")
-    print("Please ensure serviceAccountKey.json exists in the current directory.")
-    exit()
+    logger.log("Error: Service account key file not found.")
+    logger.log("Please ensure serviceAccountKey.json exists in the current directory.")
+    sys.exit()
 except json.JSONDecodeError:
-    print("Error: Invalid JSON in serviceAccountKey.json")
-    exit()
+    logger.log("Error: Invalid JSON in serviceAccountKey.json")
+    sys.exit()
 
 
-def fetch_data_by_teamnum(teamnum, all_data=None):
+def fetchDataByTeamNum(teamNum, allData=None):
     """
     Recursively fetch all data for a specific team number.
-    Traverses {teamnum}/{match}/... structure
+    Traverses {teamNum}/{match}/... structure
     """
-    if all_data is None:
-        all_data = {}
+    if allData is None:
+        allData = {}
 
-    path = f"{teamnum}"
-    print(f"\n--- Fetching team: '{teamnum}' ---")
+    path = f"{teamNum}"
+    logger.log(f"\n--- Fetching team: '{teamNum}' ---")
     try:
-        url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/{path}"
-        print(f"URL: {url}")
-        params = {"key": API_KEY, "pageSize": "1000"}
+        url = f"https://firestore.googleapis.com/v1/projects/{projectId}/databases/(default)/documents/{path}"
+        logger.log(f"URL: {url}")
+        params = {"key": apiKey, "pageSize": "1000"}
 
         response = requests.get(url, params=params)
-        print(f"Status Code: {response.status_code}")
+        logger.log(f"Status Code: {response.status_code}")
 
         if response.status_code == 200:
             result = response.json()
 
             if "documents" in result and result["documents"]:
-                print(f"Found {len(result['documents'])} matches for team {teamnum}")
-                all_data["root"][teamnum] = {}
+                logger.log(
+                    f"Found {len(result['documents'])} matches for team {teamNum}"
+                )
+                allData["root"][teamNum] = {}
 
                 for doc in result["documents"]:
-                    doc_name = doc["name"].split("/")[-1]
+                    docName = doc["name"].split("/")[-1]
 
                     if "fields" in doc and doc["fields"]:
-                        all_data["root"][teamnum][doc_name] = doc["fields"]
+                        allData["root"][teamNum][docName] = doc["fields"]
 
-                return all_data
+                return allData
             else:
-                print(f"No matches found for team {teamnum}")
-                return all_data
+                logger.log(f"No matches found for team {teamNum}")
+                return allData
         else:
-            print(
-                f"Error {response.status_code} fetching team {teamnum}: {response.text}"
+            logger.log(
+                f"Error {response.status_code} fetching team {teamNum}: {response.text}"
             )
-            return all_data
+            return allData
 
     except Exception as e:
-        print(f"Error fetching team {teamnum}: {e}")
-        import traceback
-
+        logger.log(f"Error fetching team {teamNum}: {e}")
         traceback.print_exc()
-        return all_data
+        return allData
 
 
-def fetch_all_data_recursive(path="", all_data=None):
+def fetchAllDataRecursive(path="", allData=None):
     """
     Recursively fetch all data from nested collections.
-    Assumes structure: {teamnum}/{match}/...
+    Assumes structure: {teamNum}/{match}/...
     """
-    if all_data is None:
-        all_data = {}
+    if allData is None:
+        allData = {}
 
-    print(f"\n--- Fetching from path: '{path}' ---")
+    logger.log(f"\n--- Fetching from path: '{path}' ---")
     try:
-        url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents{path}"
-        print(f"URL: {url}")
-        params = {"key": API_KEY, "pageSize": "1000"}
+        url = f"https://firestore.googleapis.com/v1/projects/{projectId}/databases/(default)/documents{path}"
+        logger.log(f"URL: {url}")
+        params = {"key": apiKey, "pageSize": "1000"}
 
         response = requests.get(url, params=params)
-        print(f"Status Code: {response.status_code}")
+        logger.log(f"Status Code: {response.status_code}")
 
         if response.status_code == 200:
             result = response.json()
 
             if "documents" in result and result["documents"]:
-                print(f"Found {len(result['documents'])} items at {path}")
+                logger.log(f"Found {len(result['documents'])} items at {path}")
 
                 for doc in result["documents"]:
-                    doc_name = doc["name"].split("/")[-1]  # Get just the document ID
-                    doc_path = f"{path}/{doc_name}"
+                    docName = doc["name"].split("/")[-1]
+                    docPath = f"{path}/{docName}"
 
-                    # Check if this is a document with data or if it has subcollections
                     if "fields" in doc and doc["fields"]:
-                        # This is a document with data
-                        all_data[doc_path] = doc["fields"]
-                        print(f"  Stored: {doc_path}")
+                        allData[docPath] = doc["fields"]
+                        logger.log(f"  Stored: {docPath}")
                     else:
-                        # This might be a document with subcollections, try to fetch them
-                        print(f"  Checking subcollections of {doc_path}...")
-                        fetch_all_data_recursive(doc_path, all_data)
+                        logger.log(f"  Checking subcollections of {docPath}...")
+                        fetchAllDataRecursive(docPath, allData)
 
-                return all_data
+                return allData
             else:
-                print(f"No documents found at {path}")
-                return all_data
+                logger.log(f"No documents found at {path}")
+                return allData
         else:
-            print(f"Error {response.status_code}: {response.text}")
-            return all_data
+            logger.log(f"Error {response.status_code}: {response.text}")
+            return allData
 
     except Exception as e:
-        print(f"Error: {e}")
-        import traceback
-
+        logger.log(f"Error: {e}")
         traceback.print_exc()
-        return all_data
-        return None
+        return allData
 
 
-def get_team_list(path):
-    url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/{path}"
-    params = {"key": API_KEY}
+def getTeamList(path):
+    url = f"https://firestore.googleapis.com/v1/projects/{projectId}/databases/(default)/documents/{path}"
+    params = {"key": apiKey}
 
     response = requests.get(url, params=params)
     if response.status_code == 200:
         data = response.json()
-        # Firestore REST API wraps arrays in ['fields']['team']['arrayValue']['values']
         try:
-            team_fields = data["fields"]["team"]["arrayValue"]["values"]
-            # Extract the actual values (assuming they are integers or strings)
-            return [list(val.values())[0] for val in team_fields]
+            teamFields = data["fields"]["team"]["arrayValue"]["values"]
+            return [list(val.values())[0] for val in teamFields]
         except KeyError:
-            print("Field 'team' not found in document.")
+            logger.log("Field 'team' not found in document.")
             return []
     return []
 
 
-if __name__ == "__main__":
-    teamNums = fetch_all_data_recursive("/datas")
-    with open("test_fetched_data.json", "w") as test_file:
-        json.dump(teamNums, test_file, indent=4)
-    teamNums = teamNums.get("/datas/data", {})
-    teamNums = teamNums.get("team", [])
-    teamNums = get_value(teamNums)
-    
+def cleanFirestoreData(data):
+    """
+    Recursively removes Firestore type wrappers (e.g., 'integerValue', 'stringValue').
+    """
+    if isinstance(data, dict):
+        typeKeys = {
+            "integerValue",
+            "stringValue",
+            "doubleValue",
+            "booleanValue",
+            "arrayValue",
+            "mapValue",
+        }
+        foundKey = next((k for k in typeKeys if k in data), None)
 
-    all_data = {"team": teamNums, "root": {}}
+        if foundKey:
+            if foundKey == "integerValue":
+                return int(data[foundKey])
+            if foundKey == "doubleValue":
+                return float(data[foundKey])
+            if foundKey == "arrayValue":
+                return [cleanFirestoreData(v) for v in data[foundKey].get("values", [])]
+            if foundKey == "mapValue":
+                return cleanFirestoreData(data[foundKey].get("fields", {}))
+            return data[foundKey]
 
-    for teamnum in teamNums:
-        fetch_data_by_teamnum(teamnum, all_data)
+        return {k: cleanFirestoreData(v) for k, v in data.items()}
 
-    if all_data:
-        for teamnum, matches in all_data.items():
-            print(f"Team {teamnum}: {len(matches)} matches")
+    elif isinstance(data, list):
+        return [cleanFirestoreData(i) for i in data]
 
-        output_filename = "fetched_data.json"
+    return data
+
+
+def fetch():
+    teamNumsRaw = fetchAllDataRecursive("/datas")
+    teamNumsRaw = teamNumsRaw.get("/datas/data", {})
+    teamNumsField = teamNumsRaw.get("team", [])
+    teamList = getValue(teamNumsField)
+
+    allData = {"team": teamList, "root": {}}
+
+    for teamNum in teamList:
+        fetchDataByTeamNum(teamNum, allData)
+
+    if allData:
+        cleanedData = cleanFirestoreData(allData)
+        outputFilename = "fetched_data.json"
         try:
-            with open(output_filename, "w") as outfile:
-                json.dump(all_data, outfile, indent=4)
+            with open(outputFilename, "w") as outFile:
+                json.dump(cleanedData, outFile, indent=4)
+            logger.log(f"\nSuccess! Cleaned data saved to {outputFilename}")
         except Exception as e:
-            print(f"Error writing to file: {e}")
-    else:
-        print("\nNo data found. Check if the team numbers are correct.")
+            logger.log(f"Error writing to file: {e}")
+
+if __name__ == "__main__":
+    fetch()
