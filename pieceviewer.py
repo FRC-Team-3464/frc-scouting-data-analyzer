@@ -65,7 +65,13 @@ for team in TEAMS:
         secondActiveHubShift = 3 if get_value(match_data.get("shift3HubActive")) else 4
         endgameFuel = get_value(match_data.get("endgameFuel", {}))
 
-        totalFuel = autoFuel + transitionFuel + endgameFuel + get_value(match_data.get(f"shift{firstActiveHubShift}Fuel", {})) + get_value(match_data.get(f"shift{secondActiveHubShift}Fuel", {}))
+        totalFuel = (
+            autoFuel
+            + transitionFuel
+            + endgameFuel
+            + get_value(match_data.get(f"shift{firstActiveHubShift}Fuel", {}))
+            + get_value(match_data.get(f"shift{secondActiveHubShift}Fuel", {}))
+        )
         autoFuels.append(autoFuel)
         transitionFuels.append(transitionFuel)
         firstActiveHubFuels.append(
@@ -76,44 +82,49 @@ for team in TEAMS:
         )
         endgameFuels.append(endgameFuel)
         totalFuels.append(totalFuel)
-    processedData["avgautoFuel"].append((autoFuels)
-        
+    processedData["autoFuel"].append(avg(autoFuels))
+    processedData["transitionFuel"].append(avg(transitionFuels))
+    processedData["firstActiveHubFuel"].append(avg(firstActiveHubFuels))
+    processedData["secondActiveHubFuel"].append(avg(secondActiveHubFuels))
+    processedData["teleopFuel"].append(avg(teleopFuels))
+    processedData["endgameFuel"].append(avg(endgameFuels))
+    processedData["totalFuel"].append(avg(totalFuels))
 
-
-# Output HTML file
 output_file("datatable_example.html")
 
-# 1️⃣ Data (column-oriented)
 data = {
     "team": TEAMS,
     "match": processedData["entries"],
-    "autoFuel": processedData["avgautoFuel"],
-    "transitionFuel": processedData["avgtransitionFuel"],
-    "firstActiveHubFuel": processedData["avgFirstActiveHubFuel"],
-    "secondActiveHubFuel": processedData["avgSecondActiveHubFuel"],
-    "endgameFuel": processedData["avgEndgameFuel"],
+    "autoFuel": processedData["autoFuel"],
+    "transitionFuel": processedData["transitionFuel"],
+    "firstActiveHubFuel": processedData["firstActiveHubFuel"],
+    "secondActiveHubFuel": processedData["secondActiveHubFuel"],
+    "endgameFuel": processedData["endgameFuel"],
 }
 
-# 2️⃣ ColumnDataSource
 source = ColumnDataSource(data)
 
-# 3️⃣ Table columns
 columns = [
     TableColumn(field="team", title="Team"),
     TableColumn(field="match", title="Match"),
     TableColumn(field="autoFuel", title="Auto Fuel"),
-    TableColumn(field="endgameClimb", title="Endgame Climb"),
+    TableColumn(field="transitionFuel", title="Avg Transition Fuel"),
+    TableColumn(field="firstActiveHubFuel", title="Avg First Active Hub Fuel"),
+    TableColumn(field="secondActiveHubFuel", title="Avg Second Active Hub Fuel"),
+    TableColumn(field="endgameFuel", title="Avg Endgame Fuel"),
 ]
 
-# 4️⃣ DataTable
+height = max(400, min(len(TEAMS) * 30 + 50, 800))
+
+width = max(1200, 7 * 80)
+
 table = DataTable(
     source=source,
     columns=columns,
-    width=600,
-    height=300,
+    width=width,
+    height=height,
     selectable=True,
     sortable=True,
 )
 
-# 5️⃣ Show
 show(table)

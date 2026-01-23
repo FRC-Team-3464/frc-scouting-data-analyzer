@@ -1,6 +1,21 @@
 import requests
 import json
 
+
+def get_value(field):
+    if isinstance(field, dict):
+        if "integerValue" in field:
+            return int(field["integerValue"])
+        elif "doubleValue" in field:
+            return float(field["doubleValue"])
+        elif "booleanValue" in field:
+            return field["booleanValue"]
+        elif "arrayValue" in field:
+            values = field["arrayValue"].get("values", [])
+            return [get_value(val) for val in values]
+    return 0
+
+
 # Load credentials from serviceAccountKey.json
 try:
     with open("serviceAccountKey.json", "r") as f:
@@ -40,15 +55,13 @@ def fetch_data_by_teamnum(teamnum, all_data=None):
 
             if "documents" in result and result["documents"]:
                 print(f"Found {len(result['documents'])} matches for team {teamnum}")
-                all_data[teamnum] = {}
+                all_data["root"][teamnum] = {}
 
                 for doc in result["documents"]:
-                    doc_name = doc["name"].split("/")[
-                        -1
-                    ]
+                    doc_name = doc["name"].split("/")[-1]
 
                     if "fields" in doc and doc["fields"]:
-                        all_data[teamnum][doc_name] = doc["fields"]
+                        all_data["root"][teamnum][doc_name] = doc["fields"]
 
                 return all_data
             else:
@@ -122,12 +135,36 @@ def fetch_all_data_recursive(path="", all_data=None):
         return None
 
 
+def get_team_list(path):
+    url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/{path}"
+    params = {"key": API_KEY}
+
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        # Firestore REST API wraps arrays in ['fields']['team']['arrayValue']['values']
+        try:
+            team_fields = data["fields"]["team"]["arrayValue"]["values"]
+            # Extract the actual values (assuming they are integers or strings)
+            return [list(val.values())[0] for val in team_fields]
+        except KeyError:
+            print("Field 'team' not found in document.")
+            return []
+    return []
+
+
 if __name__ == "__main__":
-    team_numbers = ["1000"]
+    teamNums = fetch_all_data_recursive("/datas")
+    with open("test_fetched_data.json", "w") as test_file:
+        json.dump(teamNums, test_file, indent=4)
+    teamNums = teamNums.get("/datas/data", {})
+    teamNums = teamNums.get("team", [])
+    teamNums = get_value(teamNums)
+    
 
-    all_data = {}
+    all_data = {"team": teamNums, "root": {}}
 
-    for teamnum in team_numbers:
+    for teamnum in teamNums:
         fetch_data_by_teamnum(teamnum, all_data)
 
     if all_data:

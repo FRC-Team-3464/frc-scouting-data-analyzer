@@ -53,6 +53,8 @@ NUMERIC_GRADIENT_COLUMNS = [
 try:
     with open("fetched_data.json", "r") as f:
         data = json.load(f)
+    data = data.get("root", {})
+    
     print(f"Loaded data for {len(data)} teams")
 
     rows = []
