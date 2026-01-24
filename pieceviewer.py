@@ -3,7 +3,6 @@ import fetchfromdb
 from bokeh.io import output_file, show
 from bokeh.models import ColumnDataSource, DataTable, TableColumn, HTMLTemplateFormatter
 
-fetchfromdb.fetch()
 
 # Configuration
 COLUMN_ORDER = [
@@ -32,12 +31,15 @@ def calculateAverage(lst):
     return round(sum(lst) / len(lst), 2) if lst else 0
 
 
-def processTeamAverages(filePath):
+def processTeamAverages(filePath, teams=None):
     try:
         with open(filePath, "r") as f:
             fetchedData = json.load(f)
 
-        teamList = fetchedData.get("team", [])
+        if teams is not None:
+            teamList = teams
+        else:
+            teamList = fetchedData.get("team", [])
         rootData = fetchedData.get("root", {})
         print(f"Loaded data for {len(rootData)} teams")
 
@@ -98,62 +100,67 @@ def processTeamAverages(filePath):
 
 
 # --- Main Execution ---
-processedSummary = processTeamAverages("fetched_data.json")
+def view(teams=None):
+    processedSummary = processTeamAverages("fetched_data.json", teams)
 
-if processedSummary:
-    output_file("team_averages.html")
+    if processedSummary:
+        output_file("team_averages.html")
 
-    # 1. Apply Gradient Logic
-    for col in GRADIENT_COLUMNS:
-        if col in processedSummary:
-            vals = [float(v) for v in processedSummary[col]]
-            maxV = max(vals) if vals and max(vals) > 0 else 1
+        # 1. Apply Gradient Logic
+        for col in GRADIENT_COLUMNS:
+            if col in processedSummary:
+                vals = [float(v) for v in processedSummary[col]]
+                maxV = max(vals) if vals and max(vals) > 0 else 1
 
-            colors = []
-            for v in vals:
-                ratio = min(max(v / maxV, 0), 1)
-                # Red (255, 180, 180) to Green (180, 255, 180)
-                r = int(255 - (75 * ratio))
-                g = int(180 + (75 * ratio))
-                colors.append(f"rgb({r}, {g}, 180)")
-            processedSummary[f"{col}Color"] = colors
+                colors = []
+                for v in vals:
+                    ratio = min(max(v / maxV, 0), 1)
+                    # Red (255, 180, 180) to Green (180, 255, 180)
+                    r = int(255 - (75 * ratio))
+                    g = int(180 + (75 * ratio))
+                    colors.append(f"rgb({r}, {g}, 180)")
+                processedSummary[f"{col}Color"] = colors
 
-    source = ColumnDataSource(processedSummary)
+        source = ColumnDataSource(processedSummary)
 
-    # 2. Build Columns with Formatters
-    tableColumns = []
-    for col in COLUMN_ORDER:
-        title = col.replace("avg", "Avg ").replace("Fuel", " Fuel")
+        # 2. Build Columns with Formatters
+        tableColumns = []
+        for col in COLUMN_ORDER:
+            title = col.replace("avg", "Avg ").replace("Fuel", " Fuel")
 
-        # Check if this column needs a gradient
-        if col in GRADIENT_COLUMNS:
-            formatter = HTMLTemplateFormatter(
-                template=f"""
-                <div style="background-color: <%= {col}Color %>; 
-                            padding: 4px; margin: -4px; height: 100%;">
-                    <%= value %>
-                </div>
-            """
-            )
-            tableColumns.append(
-                TableColumn(field=col, title=title, formatter=formatter, width=120)
-            )
-        else:
-            tableColumns.append(TableColumn(field=col, title=title, width=100))
+            # Check if this column needs a gradient
+            if col in GRADIENT_COLUMNS:
+                formatter = HTMLTemplateFormatter(
+                    template=f"""
+                    <div style="background-color: <%= {col}Color %>; 
+                                padding: 4px; margin: -4px; height: 100%;">
+                        <%= value %>
+                    </div>
+                """
+                )
+                tableColumns.append(
+                    TableColumn(field=col, title=title, formatter=formatter, width=120)
+                )
+            else:
+                tableColumns.append(TableColumn(field=col, title=title, width=100))
 
-    # 3. Dynamic Sizing
-    numTeams = len(processedSummary["teamNumber"])
-    dynamicHeight = max(400, min(numTeams * 30 + 50, 800))
-    dynamicWidth = max(1000, len(tableColumns) * 125)
+        # 3. Dynamic Sizing
+        numTeams = len(processedSummary["teamNumber"])
+        dynamicHeight = max(400, min(numTeams * 30 + 50, 800))
+        dynamicWidth = max(1000, len(tableColumns) * 125)
 
-    dataTable = DataTable(
-        source=source,
-        columns=tableColumns,
-        width=dynamicWidth,
-        height=dynamicHeight,
-        selectable=True,
-        sortable=True,
-        index_position=None,
-    )
+        dataTable = DataTable(
+            source=source,
+            columns=tableColumns,
+            width=dynamicWidth,
+            height=dynamicHeight,
+            selectable=True,
+            sortable=True,
+            index_position=None,
+        )
 
-    show(dataTable)
+        show(dataTable)
+
+if __name__ == "__main__":
+    fetchfromdb.fetch()
+    view()
