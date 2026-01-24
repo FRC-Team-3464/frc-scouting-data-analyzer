@@ -2,4 +2,4 @@
 fetched_data.json
 tba_matches.json
 *.log
-__pycache__
+__pycache__/
