@@ -82,4 +82,4 @@ def view_match_schedule(file_path):
 
 
 if __name__ == "__main__":
-    view_match_schedule("tba_matches.json")
+    view_match_schedule("output/tba_matches.json")
