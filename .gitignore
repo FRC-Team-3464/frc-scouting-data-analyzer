@@ -1,5 +1,3 @@
-*.html
+output/
+applogging/
 fetched_data.json
-tba_matches.json
-*.log
-__pycache__/

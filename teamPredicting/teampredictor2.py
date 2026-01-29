@@ -1,13 +1,16 @@
 import json
 import statistics
 import math
-import logger as l
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import logger
 
 # Helper functions and probability calculations for match outcome predictions
 
-l.clear()
+logger.clear()
+
 def getTeamMatches(dataRoot, teamNum):
-    """Parses your specific nested JSON structure."""
     strTeam = str(teamNum)
     if strTeam not in dataRoot:
         return []
@@ -21,7 +24,6 @@ def calculateWinChance(redStats, blueStats):
     muRed = redStats["likely"]
     muBlue = blueStats["likely"]
 
-    # Calculate Sigma based on 6-Sigma spread (99.7% confidence interval)
     rangeRed = redStats["max"] - redStats["min"]
     rangeBlue = blueStats["max"] - blueStats["min"]
 
@@ -46,8 +48,6 @@ def calculateWinChance(redStats, blueStats):
 
 
 # 3. Auto algo
-
-
 def autoCalc(allTeams):
     def getTeamProfile(teamObj):
         historyPoints = []
@@ -88,7 +88,7 @@ def autoCalc(allTeams):
         for i, score in enumerate(historyPoints):
             # Check mixed case keying
             err = matches[i].get("robotError", {})
-            isAutoStop = err.get("Auto Stop", False) or err.get("Auto stop", False)
+            isAutoStop = err.get("Auto stop", False)
 
             # If Auto Stop occurred OR score was tragically low
             if score < successThreshold or isAutoStop:
@@ -160,6 +160,7 @@ def autoCalc(allTeams):
 
 
 # teleop algo
+
 
 def teleopCalc(allTeams, autoWinner, defenseFactored=False):
     # Constants
@@ -239,7 +240,7 @@ def teleopCalc(allTeams, autoWinner, defenseFactored=False):
         }
 
     profiles = [getProfile(t) for t in allTeams]
-    l.log(profiles)
+    logger.log(profiles)
     redProfs = profiles[0:3]
     blueProfs = profiles[3:6]
 
@@ -329,6 +330,7 @@ def teleopCalc(allTeams, autoWinner, defenseFactored=False):
         "schedWinner": autoWinner,
     }
 
+
 def main():
     # 1. Parse JSON
     with open("fetched_data.json", "r") as inFile:
@@ -336,8 +338,8 @@ def main():
     jsonData = json.loads(rawJsonString)
 
     # 2. Define Teams (Using IDs available in the data)
-    redAlliance = [9998, 9997, 9996]
-    blueAlliance = [9995, 9994, 9993]
+    redAlliance = [1, 2, 3]
+    blueAlliance = [4, 5, 6]
 
     allTeamsList = []
     for tNum in redAlliance + blueAlliance:
@@ -371,20 +373,20 @@ def main():
         "Red_Alliance": {
             "Teams": redAlliance,
             "Score_Prediction": redFinal,
-            "Win_Chance": f"{winChances['redWinPct']}%",
+            "Win_Chance": f"{winChances["redWinPct"]}%",
         },
         "Blue_Alliance": {
             "Teams": blueAlliance,
             "Score_Prediction": blueFinal,
-            "Win_Chance": f"{winChances['blueWinPct']}%",
+            "Win_Chance": f"{winChances["blueWinPct"]}%",
         },
         "Simulation_Details": {
             "Auto_Winner": autoRes["winner"],
-            "Schedule": f"{autoRes['winner']} controls cycle flow.",
+            "Schedule": f"{autoRes["winner"]} controls cycle flow.",
         },
     }
 
-    with open("teamPredictor.json", "w") as outFile:
+    with open("output/teamPredictor.json", "w") as outFile:
         json.dump(output, outFile, indent=4)
 
 

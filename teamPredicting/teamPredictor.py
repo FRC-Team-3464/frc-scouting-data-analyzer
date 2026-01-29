@@ -145,8 +145,13 @@ if __name__ == "__main__":
     with open("fetched_data.json", "r") as inFile:
         rawJsonString = inFile.read()
     data = json.loads(rawJsonString)
-    red_teams_input = [9998, 9997, 9996]
-    blue_teams_input = [9995, 9994, 9993]
+    red_teams_input = [1,2,3]
+    blue_teams_input = [4,5,6]
     stdev_input = 1.0
 
-    print(game_predictor(data, red_teams_input, blue_teams_input, stdev_input))
+    with open("output/teamPredictor1.json", "w") as outFile:
+        json.dump(
+            game_predictor(data, red_teams_input, blue_teams_input, stdev_input),
+            outFile,
+            indent=4,
+        )

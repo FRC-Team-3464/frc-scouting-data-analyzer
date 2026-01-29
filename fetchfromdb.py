@@ -1,9 +1,11 @@
+import os
 import requests
 import json
-import logger
 import traceback
 import sys
-
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import logger
+    
 logger.clear()
 
 def getValue(field):

@@ -15,7 +15,7 @@ def fetch():
     if response.status_code == 200:
         data = response.json()
         print(f"Successfully fetched {len(data)} matches!")
-        with open("tba_matches.json", "w") as w:
+        with open("output/tba_matches.json", "w") as w:
             json.dump(data, w, indent=4)
     else:
         print(f"Error {response.status_code}: {response.text}")

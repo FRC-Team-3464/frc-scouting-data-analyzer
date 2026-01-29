@@ -1,7 +1,9 @@
 import json
-import fetchfromdb
-from bokeh.io import output_file, show
+import os
+import sys
+from bokeh.io import output_file, save
 from bokeh.models import ColumnDataSource, DataTable, TableColumn, HTMLTemplateFormatter
+
 
 # Configuration
 COLUMN_ORDER = [
@@ -171,7 +173,7 @@ def view(teams=None, color=False):
             index_position=None,
         )
 
-        show(dataTable)
+        save(dataTable, "output/team_averages.html")
 
 
 if __name__ == "__main__":

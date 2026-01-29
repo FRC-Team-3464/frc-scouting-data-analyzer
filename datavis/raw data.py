@@ -1,8 +1,11 @@
 import json
-import fetchfromdb
-from bokeh.io import show
+import os
+import sys
+from bokeh.io import save, show
 from bokeh.models import ColumnDataSource, DataTable, TableColumn, HTMLTemplateFormatter
 from bokeh.layouts import column
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import logger
 
 COLUMN_ORDER = [
     "eventName",
@@ -145,6 +148,6 @@ if allRows:
         index_position=0,
     )
 
-    show(column(dataTable))
+    save(column(dataTable), "/output/raw_data.html")
 else:
     print("No data to display.")
