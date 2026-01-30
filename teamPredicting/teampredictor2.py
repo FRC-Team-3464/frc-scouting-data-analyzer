@@ -3,6 +3,7 @@ import statistics
 import math
 import os
 import sys
+import time
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import logger
 
@@ -391,4 +392,6 @@ def main():
 
 
 if __name__ == "__main__":
+    start = time.time()
     main()
+    print(f"Prediction completed in {time.time() - start:.2f} seconds.")

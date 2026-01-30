@@ -3,8 +3,9 @@ import requests
 import json
 import traceback
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import logger
+from datetime import datetime
+import time
     
 logger.clear()
 
@@ -207,4 +208,6 @@ def fetch():
             logger.log(f"Error writing to file: {e}")
 
 if __name__ == "__main__":
+    start = time.time()
     fetch()
+    print(f"Fetch completed in {time.time() - start:.2f} seconds.")

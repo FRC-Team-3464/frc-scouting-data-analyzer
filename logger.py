@@ -8,7 +8,7 @@ def log(message):
 
 def clear():
     filename = os.path.splitext(os.path.basename(inspect.stack()[1].filename))[0]
-    open(f"{filename}.log", "w").close()
+    open(f"applogging/{filename}.log", "w").close()
 
 if __name__ == "__main__":
     # Example usage
