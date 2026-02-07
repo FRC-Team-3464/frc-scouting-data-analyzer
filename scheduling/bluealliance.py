@@ -3,8 +3,8 @@ import json
 
 apiKey = "CVI6FjGLtHQbCUwrb7GYAUGGWkKV7w115MdXgjnQzNSijNGV3IDkgOuRxogOVLuy"
 event = "2025necmp2"
-
-url = f"https://www.thebluealliance.com/api/v3/event/{event}/matches"
+method = "rankings" # matches rankings
+url = f"https://www.thebluealliance.com/api/v3/event/{event}/{method}"
 
 headers = {"X-TBA-Auth-Key": apiKey}
 
