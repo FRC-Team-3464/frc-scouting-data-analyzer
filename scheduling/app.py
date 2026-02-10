@@ -45,6 +45,7 @@ NUMERIC_GRADIENT_COLUMNS = [
     "endgameFuel",
 ]
 
+
 def loadAndFlattenData(filePath):
     try:
         with open(filePath, "r") as f:
@@ -116,15 +117,14 @@ criteria_mapping = {
 extra_df = pd.DataFrame(pd.read_csv("custom.csv"))
 
 
-def update( m1, m2, m3, m4,m5,m6):
+def update(m1, m2, m3, m4, m5, m6):
     row = {
         "multiplier1": m1,
         "multiplier2": m2,
         "multiplier3": m3,
         "multiplier4": m4,
         "multiplier5": m5,
-        "multiplier6": m6
-
+        "multiplier6": m6,
     }
     extra_df = pd.read_csv("custom.csv")
     extra_df = pd.concat([extra_df, pd.DataFrame([row])], ignore_index=True)
@@ -163,7 +163,8 @@ with tab1:
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Records", len(df))
         col2.metric(
-            "Unique Teams", df["teamNumber"].nunique() if "teamNumber" in df.columns else 0
+            "Unique Teams",
+            df["teamNumber"].nunique() if "teamNumber" in df.columns else 0,
         )
         col3.metric(
             "Unique Matches",
@@ -198,19 +199,7 @@ with tab1:
         st.subheader("Export Options")
     else:
         st.warning("No data to display. Please ensure fetched_data.json exists.")
-#sam luvs bill gates and goes copilot everywhere
 
-
-
-
-
-
-
-
-
-
-
-#no bill gates here
 df = pd.DataFrame(pd.read_csv("avgs.csv"))
 
 criteria_mapping = {
@@ -228,15 +217,14 @@ import time
 extra_df = pd.DataFrame(pd.read_csv("custom.csv"))
 
 
-def update( m1, m2, m3, m4,m5,m6):
+def update(m1, m2, m3, m4, m5, m6):
     row = {
         "multiplier1": m1,
         "multiplier2": m2,
         "multiplier3": m3,
         "multiplier4": m4,
         "multiplier5": m5,
-        "multiplier6": m6
-
+        "multiplier6": m6,
     }
     extra_df = pd.read_csv("custom.csv")
     extra_df = pd.concat([extra_df, pd.DataFrame([row])], ignore_index=True)
@@ -260,15 +248,30 @@ with tab2:
                 st.session_state["multiplier_3"],
                 st.session_state["multiplier_4"],
                 st.session_state["multiplier_5"],
-                st.session_state["multiplier_6"]
+                st.session_state["multiplier_6"],
             )
             extra_df = pd.DataFrame(pd.read_csv("custom.csv"))
-            df["avgAutoFuel"]=df["avgAutoFuel"].astype(object) * extra_df.iloc[-1][f"multiplier1"]
-            df["avgTransitionFuel"]=df["avgTransitionFuel"].astype(object) * extra_df.iloc[-1][f"multiplier2"]
-            df["avgFirstActiveHubFuel"]=df["avgFirstActiveHubFuel"].astype(object) * extra_df.iloc[-1][f"multiplier3"]
-            df["avgSecondActiveHubFuel"]=df["avgSecondActiveHubFuel"].astype(object) * extra_df.iloc[-1][f"multiplier4"]
-            df["avgEndgameFuel"]=df["avgEndgameFuel"].astype(object) * extra_df.iloc[-1][f"multiplier5"]
-            df["avgTotalFuel"]=df["avgTotalFuel"].astype(object) * extra_df.iloc[-1][f"multiplier6"]
+            df["avgAutoFuel"] = (
+                df["avgAutoFuel"].astype(object) * extra_df.iloc[-1][f"multiplier1"]
+            )
+            df["avgTransitionFuel"] = (
+                df["avgTransitionFuel"].astype(object)
+                * extra_df.iloc[-1][f"multiplier2"]
+            )
+            df["avgFirstActiveHubFuel"] = (
+                df["avgFirstActiveHubFuel"].astype(object)
+                * extra_df.iloc[-1][f"multiplier3"]
+            )
+            df["avgSecondActiveHubFuel"] = (
+                df["avgSecondActiveHubFuel"].astype(object)
+                * extra_df.iloc[-1][f"multiplier4"]
+            )
+            df["avgEndgameFuel"] = (
+                df["avgEndgameFuel"].astype(object) * extra_df.iloc[-1][f"multiplier5"]
+            )
+            df["avgTotalFuel"] = (
+                df["avgTotalFuel"].astype(object) * extra_df.iloc[-1][f"multiplier6"]
+            )
 
     with col3:
         selector_1_multiplier = st.text_input(label, key="multiplier_1")
@@ -293,10 +296,9 @@ with tab2:
             "avgFirstActiveHubFuel",
             "avgSecondActiveHubFuel",
             "avgEndgameFuel",
-            "avgTotalFuel"
+            "avgTotalFuel",
         ),
         hide_index=True,
         disabled=["widgets"],
-        key="chud"
+        key="chud",
     )
-    
