@@ -21,8 +21,8 @@ def read_matches():
         return None
 
 def quickSort(lih):
-    if max(lih)
+    lih.sort()
+    return lih
 
 if __name__ == "__main__":
     ranked_teams = read_matches()
-    

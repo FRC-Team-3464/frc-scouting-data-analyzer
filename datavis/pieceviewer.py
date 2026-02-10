@@ -32,18 +32,18 @@ def calculateAverage(lst):
 
 
 def processTeamAverages(filePath, teams=None):
-    try:
-        with open(filePath, "r") as f:
-            fetchedData = json.load(f)
 
-        if teams is not None:
-            teamList = teams
-        else:
-            teamList = fetchedData.get("team", [])
+    with open(filePath, "r") as f:
+        fetchedData = json.load(f)
 
-        rootData = fetchedData.get("root", {})
+    if teams is not None:
+        teamList = teams
+    else:
+        teamList = fetchedData.get("team", [])
 
-        summaryData = {
+    rootData = fetchedData.get("root", {})
+
+    summaryData = {
             "teamNumber": [],
             "entries": [],
             "avgAutoFuel": [],
@@ -52,46 +52,52 @@ def processTeamAverages(filePath, teams=None):
             "avgSecondActiveHubFuel": [],
             "avgEndgameFuel": [],
             "avgTotalFuel": [],
+            "endgameAvgClimbPoints": [],
+            "autoClimbPercent": []
         }
 
-        for team in teamList:
-            teamMatches = rootData.get(str(team), {})
-            matchCount = len(teamMatches)
-            tempAuto, tempTransition, tempFirstHub = [], [], []
-            tempSecondHub, tempEndgame, tempTotal = [], [], []
+    for team in teamList:
+        teamMatches = rootData.get(str(team), {})
+        matchCount = len(teamMatches)
 
-            for matchId, matchData in teamMatches.items():
-                auto = matchData.get("autoFuel", 0)
-                transition = matchData.get("transitionFuel", 0)
-                endgame = matchData.get("endgameFuel", 0)
-                firstShift = 1 if matchData.get("shift1HubActive") else 2
-                secondShift = 3 if matchData.get("shift3HubActive") else 4
-                firstHub = matchData.get(f"shift{firstShift}Fuel", 0)
-                secondHub = matchData.get(f"shift{secondShift}Fuel", 0)
-                total = auto + transition + endgame + firstHub + secondHub
+        tempAutoClimb, tempAuto, tempTransition, tempFirstHub = 0, [], [], []
+        tempEndgameClimbPoints, tempSecondHub, tempEndgame, tempTotal = [], [], [], []
 
-                tempAuto.append(auto)
-                tempTransition.append(transition)
-                tempFirstHub.append(firstHub)
-                tempSecondHub.append(secondHub)
-                tempEndgame.append(endgame)
-                tempTotal.append(total)
+        for matchId, matchData in teamMatches.items():
+            auto = matchData.get("autoFuel", 0)
+            transition = matchData.get("transitionFuel", 0)
+            endgame = matchData.get("endgameFuel", 0)
+            firstShift = 1 if matchData.get("shift1HubActive") else 2
+            secondShift = 3 if matchData.get("shift3HubActive") else 4
+            firstHub = matchData.get(f"shift{firstShift}Fuel", 0)
+            secondHub = matchData.get(f"shift{secondShift}Fuel", 0)
+            total = auto + transition + endgame + firstHub + secondHub
 
-            summaryData["teamNumber"].append(team)
-            summaryData["entries"].append(matchCount)
-            summaryData["avgAutoFuel"].append(calculateAverage(tempAuto))
-            summaryData["avgTransitionFuel"].append(calculateAverage(tempTransition))
-            summaryData["avgFirstActiveHubFuel"].append(calculateAverage(tempFirstHub))
-            summaryData["avgSecondActiveHubFuel"].append(
-                calculateAverage(tempSecondHub)
+            tempAutoClimb += (1 if matchData.get("autoClimbed") else 0)
+            tempEndgameClimbPoints.append(
+                (int(matchData.get("endgameClimbLevel", "")[5:]) * 5)
+                if matchData.get("endgameClimbLevel") != "Didn't climb"
+                else 0
             )
-            summaryData["avgEndgameFuel"].append(calculateAverage(tempEndgame))
-            summaryData["avgTotalFuel"].append(calculateAverage(tempTotal))
+            tempAuto.append(auto)
+            tempTransition.append(transition)
+            tempFirstHub.append(firstHub)
+            tempSecondHub.append(secondHub)
+            tempEndgame.append(endgame)
+            tempTotal.append(total)
 
-        return summaryData
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
+        summaryData["teamNumber"].append(team)
+        summaryData["entries"].append(matchCount)
+        summaryData["avgAutoFuel"].append(calculateAverage(tempAuto))
+        summaryData["avgTransitionFuel"].append(calculateAverage(tempTransition))
+        summaryData["avgFirstActiveHubFuel"].append(calculateAverage(tempFirstHub))
+        summaryData["avgSecondActiveHubFuel"].append(calculateAverage(tempSecondHub))
+        summaryData["avgEndgameFuel"].append(calculateAverage(tempEndgame))
+        summaryData["avgTotalFuel"].append(calculateAverage(tempTotal))
+        summaryData["autoClimbPercent"].append(round((tempAutoClimb/matchCount)*100, 2))
+        summaryData["endgameAvgClimbPoints"].append(calculateAverage(tempEndgameClimbPoints))
+
+    return summaryData
 
 
 def view(teams=None, color=False):
@@ -179,3 +185,5 @@ def view(teams=None, color=False):
 if __name__ == "__main__":
     # To see the colors, pass True here:
     view(color=False)
+    with open("scheduling/avgs.json", "w") as goy:
+        json.dump(processTeamAverages("fetched_data.json"), goy, indent=4)
