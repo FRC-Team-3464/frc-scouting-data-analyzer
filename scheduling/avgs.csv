@@ -1,2 +1,2 @@
-teamNumber,entries,avgAutoFuel,avgTransitionFuel,avgFirstActiveHubFuel,avgSecondActiveHubFuel,avgEndgameFuel,avgTotalFuel
-5813,9,18.78,8.56,26.78,32.56,13.22,99.89
+teamNumber,entries,avgAutoFuel,avgTransitionFuel,avgFirstActiveHubFuel,avgSecondActiveHubFuel,avgEndgameFuel,avgTotalFuel,endgameAvgClimbPoints,autoClimbPercent
+5813,9,18.78,8.56,26.78,32.56,13.22,99.89,8.33,44.44

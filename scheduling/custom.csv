@@ -1,5 +1,6 @@
-values1,multiplier5,selector5,multiplier6,selector6,multiplier7,selector7,multiplier8,selector8
-,43.0,Endgame Points,,,,,,
-,,,43.0,AUTO points,,,,
-,,,,,234.0,Endgame Points,,
-,,,,,,,6,Climb
+values1,multiplier5,selector5,multiplier6,selector6,multiplier7,selector7,multiplier8,selector8,multiplier1,selector1,multiplier2,selector2,multiplier3,selector3,multiplier4,selector4
+,43.0,Endgame Points,,,,,,,,,,,,,,
+,,,43.0,AUTO points,,,,,,,,,,,,
+,,,,,234.0,Endgame Points,,,,,,,,,,
+,,,,,,,6.0,Climb,,,,,,,,
+,,,,,,,,,5,auto climb,,auto points,,auto points,,auto points
