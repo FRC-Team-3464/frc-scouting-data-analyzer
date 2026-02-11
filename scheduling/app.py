@@ -234,28 +234,27 @@ with tab2:
         if st.button("$\\Large\\text{🥭}$"):
 
             update(
-                st.session_state.get("multiplier_1", "1"),
-                st.session_state.get("multiplier_2", "1"),
-                st.session_state.get("multiplier_3", "1"),
-                st.session_state.get("multiplier_4", "1"),
-                st.session_state.get("multiplier_5", "1"),
-                st.session_state.get("multiplier_6", "1"),
+                st.session_state.get("multiplier_1", 1),
+                st.session_state.get("multiplier_2", 1),
+                st.session_state.get("multiplier_3", 1),
+                st.session_state.get("multiplier_4", 1),
+                st.session_state.get("multiplier_5", 1),
+                st.session_state.get("multiplier_6", 1),
             )
-            st.rerun()
 
     # Place text inputs in the columns
     with col2:
-        st.number_input("Auto", key="multiplier_1", value="1")
+        st.number_input("Auto", key="multiplier_1", value=1)
     with col3:
-        st.number_input("Trans", key="multiplier_2", value="1")
+        st.number_input("Trans", key="multiplier_2", value=1)
     with col4:
-        st.number_input("Shift 1", key="multiplier_3", value="1")
+        st.number_input("Shift 1", key="multiplier_3", value=1)
     with col5:
-        st.number_input("Shift 2", key="multiplier_4", value="1")
+        st.number_input("Shift 2", key="multiplier_4", value=1)
     with col6:
-        st.number_input("Endgame", key="multiplier_5", value="1")
+        st.number_input("Endgame", key="multiplier_5", value=1)
     with col7:
-        st.number_input("Total", key="multiplier_6", value="1")
+        st.number_input("Total", key="multiplier_6", value=1)
 
     # 2. Prepare the Display DataFrame
     # We create a copy so we don't modify the source data incorrectly
