@@ -162,15 +162,6 @@ with tab1:
     else:
         st.warning("No data to display. Please ensure fetched_data.json exists.")
 df = pd.DataFrame(pd.read_csv("avgs.csv"))
-criteria_mapping = {
-    "auto points": "avgAutoFuel",
-    "auto climb": "autoClimbPercent",
-    "transition": "avgTransitionFuel",
-    "first shift": "avgFirstActiveHubFuel",
-    "second shift": "avgSecondActiveHubFuel",
-    "Endgame Points": "avgEndgameFuel",
-    "Climb": "endgameAvgClimbPoints",
-}
 
 extra_df = pd.DataFrame(pd.read_csv("custom.csv"))
 

@@ -70,7 +70,7 @@ def view_match_schedule(file_path):
         scouter_list = '<div style="display: flex; flex-direction: column; height: 100%; width: 100%;">'
         j = 0
         for _ in range(6):
-            scouter = teams[matchOrder[(i-1)%len(matchOrder)]][j%6]
+            scouter = teams[matchOrder[(i - 1) % len(matchOrder)]][j % 6]
             scouter_list += f'<div style="border-bottom: 1px solid #ccc; flex: 1; padding: 2px; text-align: center;">{scouter}</div>'
             j += 1
 
@@ -86,7 +86,12 @@ def view_match_schedule(file_path):
                 scout_check += '<div style="background-color: #ffabab; border-bottom: 1px solid #ccc; flex: 1; padding: 2px; text-align: center;">Incorrect</div>'
         scout_check += "</div>"
 
-        table_data["match_num"].append(str(m_num) + datetime.datetime.fromtimestamp(match.get("actual_time", 0)).strftime(" (%H:%M)"))
+        table_data["match_num"].append(
+            str(m_num)
+            + datetime.datetime.fromtimestamp(match.get("actual_time", 0)).strftime(
+                " (%H:%M)"
+            )
+        )
         table_data["teams_html"].append(html_string)
         table_data["scouters_name"].append(scouter_list)
         table_data["scout_check"].append(scout_check)
@@ -131,5 +136,5 @@ def view_match_schedule(file_path):
 
 if __name__ == "__main__":
     start = time.time()
-    view_match_schedule("output/tba_matches.json")
+    view_match_schedule("tba_matches.json")
     print(f"Execution time: {time.time() - start} seconds")
