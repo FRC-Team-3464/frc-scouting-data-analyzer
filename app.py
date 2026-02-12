@@ -7,6 +7,17 @@ from io import BytesIO
 import requests
 from st_image_button import st_image_button
 from ranking import read_matches
+from bluealliance import fetch as bfetch
+from fetchfromdb import fetch as ffetch
+from pieceviewer import processTeamAverages
+from json_to_csv import convert_avgs_to_csv
+
+ffetch()
+bfetch()
+with open("scheduling/avgs.json", "w") as goy:
+    json.dump(processTeamAverages("fetched_data.json"), goy, indent=4)
+
+convert_avgs_to_csv()
 
 ranked = read_matches()
 

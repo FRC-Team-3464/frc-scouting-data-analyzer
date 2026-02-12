@@ -107,7 +107,6 @@ def view(teams=None, color=False):
         output_file("team_averages.html")
         numTeams = len(processedSummary["teamNumber"])
 
-        # 1. Apply Logic for teamNumber coloring
         if color:
             teamColors = ["transparent"] * numTeams
             for i in range(numTeams):
@@ -185,5 +184,4 @@ def view(teams=None, color=False):
 if __name__ == "__main__":
     # To see the colors, pass True here:
     view(color=False)
-    with open("scheduling/avgs.json", "w") as goy:
-        json.dump(processTeamAverages("fetched_data.json"), goy, indent=4)
+    

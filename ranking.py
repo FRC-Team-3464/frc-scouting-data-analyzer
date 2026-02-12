@@ -3,7 +3,7 @@ import json
 def read_matches():
     """Read the tba_matches.json file and return the data"""
     try:
-        with open("tba_matches.json", "r") as r:
+        with open("rankings.json", "r") as r:
             data = json.load(r)
         print(
             f"Successfully read {len(data['rankings'])} rankings from tba_matches.json"
