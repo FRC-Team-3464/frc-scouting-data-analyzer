@@ -102,7 +102,7 @@ def color_boolean_cell(val):
 # Streamlit App
 st.set_page_config(page_title="Raw Scouting Data", layout="wide")
 st.title("📊 Raw Scouting Data Viewer")
-data_path = os.path.join(os.path.dirname(__file__), "..", "fetched_data.json")
+data_path = "fetched_data.json"
 allRows = loadAndFlattenData(data_path)
 
 if allRows:

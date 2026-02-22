@@ -12,9 +12,10 @@ from fetchfromdb import fetch as ffetch
 from pieceviewer import processTeamAverages
 from json_to_csv import convert_avgs_to_csv
 
-ffetch()
-bfetch()
-with open("scheduling/avgs.json", "w") as goy:
+#ffetch()
+bfetch("matches")
+bfetch("rankings")
+with open("avgs.json", "w") as goy:
     json.dump(processTeamAverages("fetched_data.json"), goy, indent=4)
 
 convert_avgs_to_csv()
@@ -70,7 +71,6 @@ NUMERIC_GRADIENT_COLUMNS = [
     "endgameFuel",
 ]
 
-
 def loadAndFlattenData(filePath):
     try:
         with open(filePath, "r") as f:
@@ -80,6 +80,7 @@ def loadAndFlattenData(filePath):
         st.write(f"✓ Loaded data for {len(rootData)} teams")
 
         rows = []
+        
         for teamNum, matches in rootData.items():
             for matchId, matchFields in matches.items():
                 row = {"team": teamNum, "match": matchId}
@@ -92,18 +93,18 @@ def loadAndFlattenData(filePath):
                     else:
                         row[key] = value
                 rows.append(row)
+        print(len(rows))
         return rows
     except Exception as e:
         st.error(f"Error loading JSON: {e}")
         return []
-
 
 st.set_page_config(page_title="Raw Scouting Data", layout="wide")
 st.title("📊 Raw Scouting Data Viewer")
 data_path = "fetched_data.json"
 allRows = loadAndFlattenData(data_path)
 
-tab1, tab2, tab3 = st.tabs(["data", "ranker", "matches"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["data", "ranker", "matches", "STD predictor", "Game Predictor"])
 df = pd.DataFrame(pd.read_csv("avgs.csv"))
 
 with tab1:
@@ -116,13 +117,34 @@ with tab1:
 
         df = df[finalColumns]
 
+        with open("fetched_data.json", "r") as goy:
+            # Ensure teamList contains strings to match the multiselect options
+            teamsList = [str(t) for t in json.load(goy).get("team", [])]
+
         st.sidebar.header("Filters")
 
         if "teamNumber" in df.columns:
-            teams = sorted(df["teamNumber"].unique().astype(str))
+            # Get all possible teams from the dataframe
+            all_teams = sorted(df["teamNumber"].unique().astype(str))
+            
+            # 2. Initialize the session state for the multiselect if it doesn't exist
+            if "selected_teams" not in st.session_state:
+                st.session_state.selected_teams = all_teams
+
+            # 3. Create the Reset/Select All button
+            # When clicked, it updates the session state directly
+            if st.sidebar.button("Select All Teams", key="diddy"):
+                st.session_state.selected_teams = teamsList
+
+            # 4. Link the multiselect to the session state
             selected_teams = st.sidebar.multiselect(
-                "Filter by Team", teams, default=teams[:5]
+                "Filter by Team", 
+                options=all_teams, 
+                key="team_selector",
+                default=st.session_state.selected_teams 
             )
+
+            # 5. Filter the dataframe
             df = df[df["teamNumber"].astype(str).isin(selected_teams)]
 
         if "eventName" in df.columns:
@@ -235,8 +257,7 @@ with tab2:
     else:
         df["Pickability"] = 0.0
     with col1:
-        if st_image_button("","dog.jpeg", width=125):
-
+        if st_image_button("","dog.jpeg", width=125, key="floyd"):
             update(
                 st.session_state.get("multiplier_1", 1.00),
                 st.session_state.get("multiplier_2", 1.00),
@@ -274,7 +295,6 @@ with tab2:
     with col7:
         st.number_input("Total", key="multiplier_6", value=1.00)
 
-
     display_df = df.copy()
 
     def get_rank(team_num):
@@ -307,8 +327,6 @@ with tab2:
         key="chud",
     )
 with tab3:
-    import datetime
-
     # Configuration
     teamsGroup = [
         ["a", "b", "c", "d", "e", "f"],
@@ -406,10 +424,10 @@ with tab3:
 
                 if actualScouterName.lower() == assignedName.lower():
                     checkLabels.append(f"Verified: {actualScouterName}")
-                    checkColors.append("#abffb5")  # Green
+                    checkColors.append("#00ff1e")  # Green
                 elif actualScouterName != "":
                     checkLabels.append(f"Wrong Scouter: {actualScouterName}")
-                    checkColors.append("#ffffab")  # Yellow
+                    checkColors.append("#636300")  # Yellow
                 else:
                     checkLabels.append("Missing")
                     checkColors.append("#8B0000")  # Red
@@ -440,3 +458,21 @@ with tab3:
 
     if __name__ == "__main__":
         main()
+with tab4:
+    with open("teamPredictor1.json", "r") as goy:
+        stds = json.load(goy)
+
+    st.markdown(f"## Standard Deviation Predictor")
+    st.markdown(f"### {stds.get("output_cell", "")}")
+
+
+with tab5:
+    with open("teamPredictor.json", "r") as goy:
+        preds = json.load(goy)
+
+    reds = preds.get("red_alliance", {})
+    blues = preds.get("blue_alliance", {})
+
+    rteams = reds.get("Teams", [])
+    bteams = blues.get("Teams", [])
+    st.markdown(f"## ")

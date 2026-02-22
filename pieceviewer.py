@@ -56,6 +56,8 @@ def processTeamAverages(filePath, teams=None):
             "autoClimbPercent": []
         }
 
+    
+
     for team in teamList:
         teamMatches = rootData.get(str(team), {})
         matchCount = len(teamMatches)
@@ -74,11 +76,14 @@ def processTeamAverages(filePath, teams=None):
             total = auto + transition + endgame + firstHub + secondHub
 
             tempAutoClimb += (1 if matchData.get("autoClimbed") else 0)
-            tempEndgameClimbPoints.append(
-                (int(matchData.get("endgameClimbLevel", "")[5:]) * 5)
-                if matchData.get("endgameClimbLevel") != "Didn't climb"
-                else 0
-            )
+            
+            if matchData.get("endgameClimbLevel") != "Didn't climb":
+                tempEndgameClimbPoints.append(
+                    (int(matchData.get("endgameClimbLevel", "")[5:]) * 5)
+                )
+            else:
+                tempEndgameClimbPoints.append(0)
+
             tempAuto.append(auto)
             tempTransition.append(transition)
             tempFirstHub.append(firstHub)
@@ -178,7 +183,7 @@ def view(teams=None, color=False):
             index_position=None,
         )
 
-        save(dataTable, "output/team_averages.html")
+        save(dataTable, "team_averages.html")
 
 
 if __name__ == "__main__":

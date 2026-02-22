@@ -4,12 +4,8 @@ import math
 import os
 import sys
 import time
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import logger
 
-# Helper functions and probability calculations for match outcome predictions
-
-logger.clear()
 
 def getTeamMatches(dataRoot, teamNum):
     strTeam = str(teamNum)
@@ -241,7 +237,7 @@ def teleopCalc(allTeams, autoWinner, defenseFactored=False):
         }
 
     profiles = [getProfile(t) for t in allTeams]
-    logger.log(profiles)
+    print(profiles)
     redProfs = profiles[0:3]
     blueProfs = profiles[3:6]
 
@@ -339,8 +335,8 @@ def main():
     jsonData = json.loads(rawJsonString)
 
     # 2. Define Teams (Using IDs available in the data)
-    redAlliance = [1, 2, 3]
-    blueAlliance = [4, 5, 6]
+    redAlliance = [5962, 5962, 6328]
+    blueAlliance = [501, 5813, 811]
 
     allTeamsList = []
     for tNum in redAlliance + blueAlliance:
@@ -387,7 +383,7 @@ def main():
         },
     }
 
-    with open("output/teamPredictor.json", "w") as outFile:
+    with open("teamPredictor.json", "w") as outFile:
         json.dump(output, outFile, indent=4)
 
 

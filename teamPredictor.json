@@ -1,0 +1,32 @@
+{
+    "Red_Alliance": {
+        "Teams": [
+            5962,
+            5962,
+            6328
+        ],
+        "Score_Prediction": {
+            "min": 80.1,
+            "likely": 158.5,
+            "max": 200.7
+        },
+        "Win_Chance": "100.0%"
+    },
+    "Blue_Alliance": {
+        "Teams": [
+            501,
+            5813,
+            811
+        ],
+        "Score_Prediction": {
+            "min": 12.2,
+            "likely": 35.5,
+            "max": 53.8
+        },
+        "Win_Chance": "0.0%"
+    },
+    "Simulation_Details": {
+        "Auto_Winner": "Red",
+        "Schedule": "Red controls cycle flow."
+    }
+}
