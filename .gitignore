@@ -1,8 +1,9 @@
+__pycache__/
 jsons/matches.json
 jsons/rankings.json
 jsons/teamPredictor.json
-jsons/teamPredictor1.json
+jsons/stdTeamPredictor.json
 jsons/fetchedData.json
-__pycache__/
 jsons/rankings.json
 jsons/matches.json
+jsons/avgs.json

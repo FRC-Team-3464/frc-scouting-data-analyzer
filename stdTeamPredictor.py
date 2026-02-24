@@ -141,15 +141,14 @@ def game_predictor(json_input, red_teams, blue_teams, percent_stdev):
     }
 
 
-def predict():
+def predict(redAlliance, blueAlliance, stdev_input=1.0):
     with open("jsons/fetchedData.json", "r") as inFile:
         rawJsonString = inFile.read()
     data = json.loads(rawJsonString)
-    redAlliance = [811, 1768, 1512]
-    blueAlliance = [5687, 9644, 131]
+    
     stdev_input = 1.0
 
-    with open("jsons/teamPredictor1.json", "w") as outFile:
+    with open("jsons/stdTeamPredictor.json", "w") as outFile:
         json.dump(
             game_predictor(data, redAlliance, blueAlliance, stdev_input),
             outFile,
@@ -158,4 +157,4 @@ def predict():
 
 
 if __name__ == "__main__":
-    predict()
+    predict([811, 1768, 1512], [5687, 9644, 131])

@@ -15,7 +15,7 @@ from st_image_button import st_image_button
 from teamPredictor import main as predict
 from stdTeamPredictor import predict as stdpred
 
-ffetch()
+# ffetch()
 bfetch("matches")
 bfetch("rankings")
 with open("jsons/avgs.json", "w") as goy:
@@ -81,7 +81,7 @@ def loadAndFlattenData(filePath):
             fullData = json.load(f)
 
         rootData = fullData.get("root", {})
-        st.write(f"✓ Loaded data for {len(rootData)} teams")
+        st.write(f"Loaded data for {len(rootData)} teams")
 
         rows = []
 
@@ -112,6 +112,54 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(
     ["data", "ranker", "matches", "STD predictor", "Game Predictor"]
 )
 df = pd.DataFrame(pd.read_csv("avgs.csv"))
+
+extra_df = pd.DataFrame(pd.read_csv("custom.csv"))
+
+
+def update(m1, m2, m3, m4, m5, m6):
+    row = {
+        "multiplier1": m1,
+        "multiplier2": m2,
+        "multiplier3": m3,
+        "multiplier4": m4,
+        "multiplier5": m5,
+        "multiplier6": m6,
+    }
+    extra_df = pd.read_csv("custom.csv")
+    extra_df = pd.concat([extra_df, pd.DataFrame([row])], ignore_index=True)
+    extra_df.to_csv("custom.csv", index=False)
+
+
+max_rows = len(df[["teamNumber"]])
+criteria_mapping = {
+    "rank": "rank",
+    "auto points": "avgAutoFuel",
+    "auto climb": "autoClimbPercent",
+    "transition": "avgTransitionFuel",
+    "first shift": "avgFirstActiveHubFuel",
+    "second shift": "avgSecondActiveHubFuel",
+    "Endgame Points": "avgEndgameFuel",
+    "Climb": "endgameAvgClimbPoints",
+}
+
+extra_df = pd.DataFrame(pd.read_csv("custom.csv"))
+
+
+def update(m1, m2, m3, m4, m5, m6):
+    row = {
+        "multiplier1": m1,
+        "multiplier2": m2,
+        "multiplier3": m3,
+        "multiplier4": m4,
+        "multiplier5": m5,
+        "multiplier6": 1,
+    }
+    extra_df = pd.read_csv("custom.csv")
+    extra_df = pd.concat([extra_df, pd.DataFrame([row])], ignore_index=True)
+    extra_df.to_csv("custom.csv", index=False)
+
+
+max_rows = len(df[["teamNumber"]])
 
 with tab1:
     if allRows:
@@ -167,7 +215,7 @@ with tab1:
 
         st.divider()
 
-        st.subheader("Scouting Data Table")
+        st.subheader("data")
 
         styled_df = df.copy()
 
@@ -193,58 +241,6 @@ with tab1:
         st.subheader("Export Options")
     else:
         st.warning("No data to display. Please ensure jsons/fetchedData.json exists.")
-df = pd.DataFrame(pd.read_csv("avgs.csv"))
-
-extra_df = pd.DataFrame(pd.read_csv("custom.csv"))
-
-
-def update(m1, m2, m3, m4, m5, m6):
-    row = {
-        "multiplier1": m1,
-        "multiplier2": m2,
-        "multiplier3": m3,
-        "multiplier4": m4,
-        "multiplier5": m5,
-        "multiplier6": m6,
-    }
-    extra_df = pd.read_csv("custom.csv")
-    extra_df = pd.concat([extra_df, pd.DataFrame([row])], ignore_index=True)
-    extra_df.to_csv("custom.csv", index=False)
-
-
-max_rows = len(df[["teamNumber"]])
-criteria_mapping = {
-    "rank": "rank",
-    "auto points": "avgAutoFuel",
-    "auto climb": "autoClimbPercent",
-    "transition": "avgTransitionFuel",
-    "first shift": "avgFirstActiveHubFuel",
-    "second shift": "avgSecondActiveHubFuel",
-    "Endgame Points": "avgEndgameFuel",
-    "Climb": "endgameAvgClimbPoints",
-}
-
-extra_df = pd.DataFrame(pd.read_csv("custom.csv"))
-
-
-def update(m1, m2, m3, m4, m5, m6):
-    row = {
-        "multiplier1": m1,
-        "multiplier2": m2,
-        "multiplier3": m3,
-        "multiplier4": m4,
-        "multiplier5": m5,
-        "multiplier6": 1,
-    }
-    extra_df = pd.read_csv("custom.csv")
-    extra_df = pd.concat([extra_df, pd.DataFrame([row])], ignore_index=True)
-    extra_df.to_csv("custom.csv", index=False)
-
-
-max_rows = len(df[["teamNumber"]])
-
-with tab1:
-    col1, col2, col3, col4, col5, col6, col7, col8 = st.columns(8)
 with tab2:
     df = pd.read_csv("avgs.csv")
     col1, col2, col3, col4, col5, col6, col7, col8 = st.columns(8)
@@ -472,21 +468,60 @@ with tab3:
                 )
 
             st.divider()
-
-    if __name__ == "__main__":
         main()
-with tab4:
-    stdpred()
-    time.sleep(1)
-    with open("jsons/teamPredictor1.json", "r") as goy:
-        stds = json.load(goy)
 
-    st.markdown(f"## Standard Deviation Predictor")
-    st.markdown(f"### {stds.get("output_cell", "")}")
+
+with tab4:
+    col, col1, col2 = st.columns(3)
+    with col:
+        with st.form(key="std_predict_form"):
+            coll0, coll1 = st.columns(2)
+
+            with coll0:
+                st.markdown("### red")
+                st.number_input("", key="srteam1", value=0)
+                st.number_input("", key="srteam2", value=0)
+                st.number_input("", key="srteam3", value=0)
+
+            with coll1:
+                st.markdown("### blue")
+                st.number_input("", key="sbteam1", value=0)
+                st.number_input("", key="sbteam2", value=0)
+                st.number_input("", key="sbteam3", value=0)
+
+            submit = st.form_submit_button("STD Predict")
+    with col1:
+        st.markdown("robots ranked in order")
+        dictRank = {}
+        for i, m in enumerate(ranked, start=1):
+            dictRank[f"{i}"] = m
+        st.dataframe(
+            key="chud2dictRank", data=dictRank, use_container_width=True, height=500
+        )
+
+    with col2:
+        stdpred(
+            [
+                st.session_state.get("srteam1"),
+                st.session_state.get("srteam2"),
+                st.session_state.get("srteam3"),
+            ],
+            [
+                st.session_state.get("sbteam1"),
+                st.session_state.get("sbteam2"),
+                st.session_state.get("sbteam3"),
+            ],
+        )
+        time.sleep(1)
+        with open("jsons/stdTeamPredictor.json", "r") as goy:
+            stds = json.load(goy)
+
+        st.markdown(f"## Standard Deviation Predictor")
+        st.markdown(f"### {stds.get('output_cell', '')}")
 
 
 with tab5:
-    col0, col1, col2, col3 = st.columns(4)
+    col, col1, col2, col3 = st.columns(4)
     reds, blues = "", ""
     (
         rmin,
@@ -507,21 +542,31 @@ with tab5:
         0,
         0,
     )
+    with col:
+        with st.form(key="predict_form"):
+            coll0, coll1 = st.columns(2)
 
-    with col0:
-        st.markdown("### red")
-        st.number_input("", key="rteam1", value=0)
-        st.number_input("", key="rteam2", value=0)
-        st.number_input("", key="rteam3", value=0)
+            with coll0:
+                st.markdown("### red")
+                st.number_input("", key="rteam1", value=0)
+                st.number_input("", key="rteam2", value=0)
+                st.number_input("", key="rteam3", value=0)
 
+            with coll1:
+                st.markdown("### blue")
+                st.number_input("", key="bteam1", value=0)
+                st.number_input("", key="bteam2", value=0)
+                st.number_input("", key="bteam3", value=0)
+
+            submit = st.form_submit_button("Predict")
     with col1:
-        st.markdown("### blue")
-        st.number_input("", key="bteam1", value=0)
-        st.number_input("", key="bteam2", value=0)
-        st.number_input("", key="bteam3", value=0)
-
+        st.markdown("robots ranked in order")
+        dictRank = {}
+        for i, m in enumerate(ranked, start=1):
+            dictRank[f"{i}"] = m
+        st.dataframe(dictRank, use_container_width=True, height=500)
     with col2:
-        if st_image_button("mango", width=125):
+        if submit:
             if st.session_state.get("rteam1", 0) != 0:
                 predict(
                     [
