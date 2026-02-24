@@ -11,7 +11,7 @@ teams = [
     ["m", "n", "o", "p", "q", "r"],
 ]
 matchOrder = [0, 1, 2, 1, 2, 1, 0]
-with open("fetched_data.json", "r") as file:
+with open("jsons/fetchedData.json", "r") as file:
     fetched_data = json.load(file)
 fetched_data = fetched_data.get("root", {})
 
@@ -136,5 +136,5 @@ def view_match_schedule(file_path):
 
 if __name__ == "__main__":
     start = time.time()
-    view_match_schedule("tba_matches.json")
+    view_match_schedule("jsons/matches.json")
     print(f"Execution time: {time.time() - start} seconds")

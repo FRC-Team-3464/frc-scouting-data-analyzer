@@ -6,6 +6,7 @@ import sys
 from datetime import datetime
 import time
 
+
 def getValue(field):
     if isinstance(field, dict):
         if "integerValue" in field:
@@ -20,7 +21,6 @@ def getValue(field):
     return 0
 
 
-# Load credentials from serviceAccountKey.json
 try:
     with open("serviceAccountKey.json", "r") as f:
         config = json.load(f)
@@ -58,9 +58,7 @@ def fetchDataByTeamNum(teamNum, allData=None):
             result = response.json()
 
             if "documents" in result and result["documents"]:
-                print(
-                    f"Found {len(result['documents'])} matches for team {teamNum}"
-                )
+                print(f"Found {len(result['documents'])} matches for team {teamNum}")
                 allData["root"][teamNum] = {}
 
                 for doc in result["documents"]:
@@ -196,13 +194,14 @@ def fetch():
 
     if allData:
         cleanedData = cleanFirestoreData(allData)
-        outputFilename = "fetched_data.json"
+        outputFilename = "jsons/fetchedData.json"
         try:
             with open(outputFilename, "w") as outFile:
                 json.dump(cleanedData, outFile, indent=4)
             print(f"\nSuccess! Cleaned data saved to {outputFilename}")
         except Exception as e:
             print(f"Error writing to file: {e}")
+
 
 if __name__ == "__main__":
     start = time.time()

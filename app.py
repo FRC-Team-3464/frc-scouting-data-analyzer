@@ -9,17 +9,17 @@ import requests
 from ranking import read_matches
 from bluealliance import fetch as bfetch
 from fetchfromdb import fetch as ffetch
-from pieceviewer import processTeamAverages
+from avgs import processTeamAverages
 from json_to_csv import convert_avgs_to_csv
 from st_image_button import st_image_button
 from teamPredictor import main as predict
 from stdTeamPredictor import predict as stdpred
 
-#ffetch()
+ffetch()
 bfetch("matches")
 bfetch("rankings")
-with open("avgs.json", "w") as goy:
-    json.dump(processTeamAverages("fetched_data.json"), goy, indent=4)
+with open("jsons/avgs.json", "w") as goy:
+    json.dump(processTeamAverages("jsons/fetchedData.json"), goy, indent=4)
 
 convert_avgs_to_csv()
 
@@ -74,6 +74,7 @@ NUMERIC_GRADIENT_COLUMNS = [
     "endgameFuel",
 ]
 
+
 def loadAndFlattenData(filePath):
     try:
         with open(filePath, "r") as f:
@@ -83,12 +84,11 @@ def loadAndFlattenData(filePath):
         st.write(f"✓ Loaded data for {len(rootData)} teams")
 
         rows = []
-        
+
         for teamNum, matches in rootData.items():
             for matchId, matchFields in matches.items():
                 row = {"team": teamNum, "match": matchId}
 
-                # Iterate fields
                 for key, value in matchFields.items():
                     if key == "robotError" and isinstance(value, dict):
                         trueErrors = [k for k, v in value.items() if v is True]
@@ -102,12 +102,15 @@ def loadAndFlattenData(filePath):
         st.error(f"Error loading JSON: {e}")
         return []
 
+
 st.set_page_config(page_title="Raw Scouting Data", layout="wide")
 st.title("📊 Raw Scouting Data Viewer")
-data_path = "fetched_data.json"
+data_path = "jsons/fetchedData.json"
 allRows = loadAndFlattenData(data_path)
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["data", "ranker", "matches", "STD predictor", "Game Predictor"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["data", "ranker", "matches", "STD predictor", "Game Predictor"]
+)
 df = pd.DataFrame(pd.read_csv("avgs.csv"))
 
 with tab1:
@@ -120,34 +123,27 @@ with tab1:
 
         df = df[finalColumns]
 
-        with open("fetched_data.json", "r") as goy:
-            # Ensure teamList contains strings to match the multiselect options
+        with open("jsons/fetchedData.json", "r") as goy:
             teamsList = [str(t) for t in json.load(goy).get("team", [])]
 
         st.sidebar.header("Filters")
 
         if "teamNumber" in df.columns:
-            # Get all possible teams from the dataframe
             all_teams = sorted(df["teamNumber"].unique().astype(str))
-            
-            # 2. Initialize the session state for the multiselect if it doesn't exist
+
             if "selected_teams" not in st.session_state:
                 st.session_state.selected_teams = all_teams
 
-            # 3. Create the Reset/Select All button
-            # When clicked, it updates the session state directly
             if st.sidebar.button("Select All Teams", key="diddy"):
                 st.session_state.selected_teams = teamsList
 
-            # 4. Link the multiselect to the session state
             selected_teams = st.sidebar.multiselect(
-                "Filter by Team", 
-                options=all_teams, 
+                "Filter by Team",
+                options=all_teams,
                 key="team_selector",
-                default=st.session_state.selected_teams 
+                default=st.session_state.selected_teams,
             )
 
-            # 5. Filter the dataframe
             df = df[df["teamNumber"].astype(str).isin(selected_teams)]
 
         if "eventName" in df.columns:
@@ -196,7 +192,7 @@ with tab1:
         st.divider()
         st.subheader("Export Options")
     else:
-        st.warning("No data to display. Please ensure fetched_data.json exists.")
+        st.warning("No data to display. Please ensure jsons/fetchedData.json exists.")
 df = pd.DataFrame(pd.read_csv("avgs.csv"))
 
 extra_df = pd.DataFrame(pd.read_csv("custom.csv"))
@@ -231,7 +227,7 @@ criteria_mapping = {
 extra_df = pd.DataFrame(pd.read_csv("custom.csv"))
 
 
-def update( m1, m2, m3, m4,m5,m6):
+def update(m1, m2, m3, m4, m5, m6):
     row = {
         "multiplier1": m1,
         "multiplier2": m2,
@@ -239,8 +235,6 @@ def update( m1, m2, m3, m4,m5,m6):
         "multiplier4": m4,
         "multiplier5": m5,
         "multiplier6": 1,
-
-
     }
     extra_df = pd.read_csv("custom.csv")
     extra_df = pd.concat([extra_df, pd.DataFrame([row])], ignore_index=True)
@@ -260,7 +254,7 @@ with tab2:
     else:
         df["Pickability"] = 0.0
     with col1:
-        if st_image_button("","dog.jpeg", width=125, key="floyd"):
+        if st_image_button("", "dog.jpeg", width=125, key="floyd"):
             update(
                 st.session_state.get("multiplier_1", 1.00),
                 st.session_state.get("multiplier_2", 1.00),
@@ -270,20 +264,51 @@ with tab2:
                 st.session_state.get("multiplier_6", 1.00),
             )
             extra_df = pd.DataFrame(pd.read_csv("custom.csv"))
-            df["avgAutoFuel"]=df["avgAutoFuel"].astype(float) * extra_df.iloc[-1][f"multiplier1"]
-            df["avgTransitionFuel"]=df["avgTransitionFuel"].astype(float) * extra_df.iloc[-1][f"multiplier2"]
-            df["avgFirstActiveHubFuel"]=df["avgFirstActiveHubFuel"].astype(float) * extra_df.iloc[-1][f"multiplier3"]
-            df["avgSecondActiveHubFuel"]=df["avgSecondActiveHubFuel"].astype(float) * extra_df.iloc[-1][f"multiplier4"]
-            df["avgEndgameFuel"]=df["avgEndgameFuel"].astype(float) * extra_df.iloc[-1][f"multiplier5"]
-            df["avgTotalFuel"]=df["avgTotalFuel"].astype(float) * extra_df.iloc[-1][f"multiplier6"]
-        updated_list = ["multiplier1","multiplier2","multiplier3","multiplier4","multiplier5","multiplier6"]
-        categories = ["avgAutoFuel","avgTransitionFuel","avgFirstActiveHubFuel","avgSecondActiveHubFuel","avgEndgameFuel","avgTotalFuel"]
+            df["avgAutoFuel"] = (
+                df["avgAutoFuel"].astype(float) * extra_df.iloc[-1][f"multiplier1"]
+            )
+            df["avgTransitionFuel"] = (
+                df["avgTransitionFuel"].astype(float)
+                * extra_df.iloc[-1][f"multiplier2"]
+            )
+            df["avgFirstActiveHubFuel"] = (
+                df["avgFirstActiveHubFuel"].astype(float)
+                * extra_df.iloc[-1][f"multiplier3"]
+            )
+            df["avgSecondActiveHubFuel"] = (
+                df["avgSecondActiveHubFuel"].astype(float)
+                * extra_df.iloc[-1][f"multiplier4"]
+            )
+            df["avgEndgameFuel"] = (
+                df["avgEndgameFuel"].astype(float) * extra_df.iloc[-1][f"multiplier5"]
+            )
+            df["avgTotalFuel"] = (
+                df["avgTotalFuel"].astype(float) * extra_df.iloc[-1][f"multiplier6"]
+            )
+        updated_list = [
+            "multiplier1",
+            "multiplier2",
+            "multiplier3",
+            "multiplier4",
+            "multiplier5",
+            "multiplier6",
+        ]
+        categories = [
+            "avgAutoFuel",
+            "avgTransitionFuel",
+            "avgFirstActiveHubFuel",
+            "avgSecondActiveHubFuel",
+            "avgEndgameFuel",
+            "avgTotalFuel",
+        ]
         pickability_list = []
-        for i in range(0,6):
+        for i in range(0, 6):
             if extra_df.iloc[-1][updated_list[i]] == 1:
                 pass
             else:
-                pickability_list.append(extra_df.iloc[-1][updated_list[i]]*df[categories[i]].astype(float))
+                pickability_list.append(
+                    extra_df.iloc[-1][updated_list[i]] * df[categories[i]].astype(float)
+                )
         df["Pickability"] = sum(pickability_list)
     with col2:
         st.number_input("Auto", key="multiplier_1", value=1.00)
@@ -326,18 +351,16 @@ with tab2:
         ),
         hide_index=True,
         use_container_width=True,
-        disabled=True,  
+        disabled=True,
         key="chud",
     )
 with tab3:
-    # Configuration
     teamsGroup = [
         ["a", "b", "c", "d", "e", "f"],
         ["g", "h", "i", "j", "k", "l"],
         ["m", "n", "o", "p", "q", "r"],
     ]
     matchOrder = [0, 1, 2, 1, 2, 1, 0]
-
 
     def getStackedCell(items, colors=None):
         """Generates a stacked HTML cell to replicate the layout."""
@@ -353,27 +376,23 @@ with tab3:
         htmlString += "</div>"
         return htmlString
 
-
     def main():
         st.set_page_config(page_title="Match Schedule", layout="wide")
         st.title("📋 Match Schedule & Scout Verification")
 
-        # Load TBA Match Schedule
         try:
-            with open("matches.json", "r") as file:
+            with open("jsons/matches.json", "r") as file:
                 matchList = json.load(file)
         except (FileNotFoundError, json.JSONDecodeError):
-            st.error("Error: Could not load tba_matches.json.")
+            st.error("Error: Could not load tba_jsons/matches.json.")
             return
 
-        # Load Scouting Data
         try:
-            with open("fetched_data.json", "r") as file:
+            with open("jsons/fetchedData.json", "r") as file:
                 scoutingData = json.load(file).get("root", {})
         except (FileNotFoundError, json.JSONDecodeError):
             scoutingData = {}
 
-        # Header Row
         st.divider()
         h1, h2, h3, h4 = st.columns([1, 2, 2, 2])
         h1.write("**Match / Score**")
@@ -391,16 +410,16 @@ with tab3:
             compLevel = match.get("comp_level", "qm").upper()
             alliances = match.get("alliances", {})
 
-            # Alliance Scores
             redScore = alliances.get("red", {}).get("score", 0)
             blueScore = alliances.get("blue", {}).get("score", 0)
 
-            # Get Team Keys
             redKeys = [
-                t.replace("frc", "") for t in alliances.get("red", {}).get("team_keys", [])
+                t.replace("frc", "")
+                for t in alliances.get("red", {}).get("team_keys", [])
             ]
             blueKeys = [
-                t.replace("frc", "") for t in alliances.get("blue", {}).get("team_keys", [])
+                t.replace("frc", "")
+                for t in alliances.get("blue", {}).get("team_keys", [])
             ]
             displayTeams = redKeys + blueKeys
 
@@ -409,10 +428,8 @@ with tab3:
 
             allianceColors = ["#8B0000"] * 3 + ["#00008B"] * 3
 
-            # Scouter Assignments
             assignedScouters = teamsGroup[matchOrder[idx % len(matchOrder)]]
 
-            # Scout Verification Logic
             checkLabels = []
             checkColors = []
 
@@ -420,7 +437,6 @@ with tab3:
                 teamNum = displayTeams[i]
                 assignedName = assignedScouters[i]
 
-                # Navigate JSON: root -> teamNum -> matchNum -> name
                 teamData = scoutingData.get(teamNum, {})
                 matchData = teamData.get(matchStr, {})
                 actualScouterName = matchData.get("name", "")
@@ -435,7 +451,6 @@ with tab3:
                     checkLabels.append("Missing")
                     checkColors.append("#8B0000")  # Red
 
-            # Render UI Row
             r1, r2, r3, r4 = st.columns([1, 2, 2, 2])
 
             with r1:
@@ -458,13 +473,12 @@ with tab3:
 
             st.divider()
 
-
     if __name__ == "__main__":
         main()
 with tab4:
     stdpred()
     time.sleep(1)
-    with open("teamPredictor1.json", "r") as goy:
+    with open("jsons/teamPredictor1.json", "r") as goy:
         stds = json.load(goy)
 
     st.markdown(f"## Standard Deviation Predictor")
@@ -474,7 +488,25 @@ with tab4:
 with tab5:
     col0, col1, col2, col3 = st.columns(4)
     reds, blues = "", ""
-    rmin, ravg, rmax, bmin, bavg, bmax, rwin, bwin, = 0,0,0,0,0,0,0,0
+    (
+        rmin,
+        ravg,
+        rmax,
+        bmin,
+        bavg,
+        bmax,
+        rwin,
+        bwin,
+    ) = (
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    )
 
     with col0:
         st.markdown("### red")
@@ -488,13 +520,24 @@ with tab5:
         st.number_input("", key="bteam2", value=0)
         st.number_input("", key="bteam3", value=0)
 
-    with col2:  
-        if (st_image_button("mango", width=125)): 
-            if (st.session_state.get("rteam1", 0) != 0):
-                predict([st.session_state.get("rteam1"), st.session_state.get("rteam2"), st.session_state.get("rteam3")], [st.session_state.get("bteam1"), st.session_state.get("bteam2"), st.session_state.get("bteam3")])
+    with col2:
+        if st_image_button("mango", width=125):
+            if st.session_state.get("rteam1", 0) != 0:
+                predict(
+                    [
+                        st.session_state.get("rteam1"),
+                        st.session_state.get("rteam2"),
+                        st.session_state.get("rteam3"),
+                    ],
+                    [
+                        st.session_state.get("bteam1"),
+                        st.session_state.get("bteam2"),
+                        st.session_state.get("bteam3"),
+                    ],
+                )
                 print("waiting")
                 time.sleep(3)
-                with open("teamPredictor.json", "r") as goy:
+                with open("jsons/teamPredictor.json", "r") as goy:
                     preds = json.load(goy)
 
                 reds = preds.get("Red_Alliance", {})
@@ -524,4 +567,3 @@ with tab5:
         st.markdown(f"Likely: {bavg}")
         st.markdown(f"Max: {bmax}")
         st.markdown(f"Win chance: {bwin}")
-

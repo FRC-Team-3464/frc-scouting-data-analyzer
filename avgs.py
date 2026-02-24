@@ -44,19 +44,17 @@ def processTeamAverages(filePath, teams=None):
     rootData = fetchedData.get("root", {})
 
     summaryData = {
-            "teamNumber": [],
-            "entries": [],
-            "avgAutoFuel": [],
-            "avgTransitionFuel": [],
-            "avgFirstActiveHubFuel": [],
-            "avgSecondActiveHubFuel": [],
-            "avgEndgameFuel": [],
-            "avgTotalFuel": [],
-            "endgameAvgClimbPoints": [],
-            "autoClimbPercent": []
-        }
-
-    
+        "teamNumber": [],
+        "entries": [],
+        "avgAutoFuel": [],
+        "avgTransitionFuel": [],
+        "avgFirstActiveHubFuel": [],
+        "avgSecondActiveHubFuel": [],
+        "avgEndgameFuel": [],
+        "avgTotalFuel": [],
+        "endgameAvgClimbPoints": [],
+        "autoClimbPercent": [],
+    }
 
     for team in teamList:
         teamMatches = rootData.get(str(team), {})
@@ -75,9 +73,9 @@ def processTeamAverages(filePath, teams=None):
             secondHub = matchData.get(f"shift{secondShift}Fuel", 0)
             total = auto + transition + endgame + firstHub + secondHub
 
-            tempAutoClimb += (1 if matchData.get("autoClimbed") else 0)
-            
-            if matchData.get("endgameClimbLevel") != "Didn't climb":
+            tempAutoClimb += 1 if matchData.get("autoClimbed") else 0
+
+            if matchData.get("endgameClimbLevel") != "Didn't climb" and matchData.get("endgameClimbLevel", "").startswith("Level "):
                 print(matchData.get("endgameClimbLevel"), "")
                 tempEndgameClimbPoints.append(
                     (int(matchData.get("endgameClimbLevel", "")[5:]) * 5)
@@ -100,14 +98,18 @@ def processTeamAverages(filePath, teams=None):
         summaryData["avgSecondActiveHubFuel"].append(calculateAverage(tempSecondHub))
         summaryData["avgEndgameFuel"].append(calculateAverage(tempEndgame))
         summaryData["avgTotalFuel"].append(calculateAverage(tempTotal))
-        summaryData["autoClimbPercent"].append(round((tempAutoClimb/matchCount)*100, 2))
-        summaryData["endgameAvgClimbPoints"].append(calculateAverage(tempEndgameClimbPoints))
+        summaryData["autoClimbPercent"].append(
+            round((tempAutoClimb / matchCount) * 100, 2)
+        )
+        summaryData["endgameAvgClimbPoints"].append(
+            calculateAverage(tempEndgameClimbPoints)
+        )
 
     return summaryData
 
 
 def view(teams=None, color=False):
-    processedSummary = processTeamAverages("fetched_data.json", teams)
+    processedSummary = processTeamAverages("jsons/fetchedData.json", teams)
 
     if processedSummary:
         output_file("team_averages.html")
@@ -190,4 +192,3 @@ def view(teams=None, color=False):
 if __name__ == "__main__":
     # To see the colors, pass True here:
     view(color=False)
-    

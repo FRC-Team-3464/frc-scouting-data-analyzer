@@ -2,8 +2,9 @@ import json
 import csv
 import os
 
-def convert_avgs_to_csv(json_file="avgs.json", csv_file="avgs.csv"):
-    """Convert avgs.json to CSV format."""
+
+def convert_avgs_to_csv(json_file="jsons/avgs.json", csv_file="avgs.csv"):
+    """Convert jsons/avgs.json to CSV format."""
     try:
         # Read JSON file
         with open(json_file, "r") as f:
@@ -35,6 +36,7 @@ def convert_avgs_to_csv(json_file="avgs.json", csv_file="avgs.csv"):
         print(f"Error: {json_file} not found")
     except Exception as e:
         print(f"Error: {e}")
+
 
 if __name__ == "__main__":
     convert_avgs_to_csv()

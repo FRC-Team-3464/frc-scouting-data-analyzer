@@ -2,7 +2,6 @@ import streamlit as st
 import json
 import datetime
 
-# Configuration
 teamsGroup = [
     ["a", "b", "c", "d", "e", "f"],
     ["g", "h", "i", "j", "k", "l"],
@@ -28,24 +27,21 @@ def getStackedCell(items, colors=None):
 
 def main():
     st.set_page_config(page_title="Match Schedule", layout="wide")
-    st.title("📋 Match Schedule & Scout Verification")
+    st.title("Match Schedule & Scout Verification")
 
-    # Load TBA Match Schedule
     try:
-        with open("tba_matches.json", "r") as file:
+        with open("tba_jsons/matches.json", "r") as file:
             matchList = json.load(file)
     except (FileNotFoundError, json.JSONDecodeError):
-        st.error("Error: Could not load tba_matches.json.")
+        st.error("Error: Could not load tba_jsons/matches.json.")
         return
 
-    # Load Scouting Data
     try:
-        with open("fetched_data.json", "r") as file:
+        with open("jsons/fetchedData.json", "r") as file:
             scoutingData = json.load(file).get("root", {})
     except (FileNotFoundError, json.JSONDecodeError):
         scoutingData = {}
 
-    # Header Row
     st.divider()
     h1, h2, h3, h4 = st.columns([1, 2, 2, 2])
     h1.write("**Match / Score**")
@@ -63,11 +59,9 @@ def main():
         compLevel = match.get("comp_level", "qm").upper()
         alliances = match.get("alliances", {})
 
-        # Alliance Scores
         redScore = alliances.get("red", {}).get("score", 0)
         blueScore = alliances.get("blue", {}).get("score", 0)
 
-        # Get Team Keys
         redKeys = [
             t.replace("frc", "") for t in alliances.get("red", {}).get("team_keys", [])
         ]
@@ -81,10 +75,8 @@ def main():
 
         allianceColors = ["#ffb4b4"] * 3 + ["#b4b4ff"] * 3
 
-        # Scouter Assignments
         assignedScouters = teamsGroup[matchOrder[idx % len(matchOrder)]]
 
-        # Scout Verification Logic
         checkLabels = []
         checkColors = []
 
@@ -92,7 +84,6 @@ def main():
             teamNum = displayTeams[i]
             assignedName = assignedScouters[i]
 
-            # Navigate JSON: root -> teamNum -> matchNum -> name
             teamData = scoutingData.get(teamNum, {})
             matchData = teamData.get(matchStr, {})
             actualScouterName = matchData.get("name", "")
@@ -107,7 +98,6 @@ def main():
                 checkLabels.append("Missing")
                 checkColors.append("#ffabab")  # Red
 
-        # Render UI Row
         r1, r2, r3, r4 = st.columns([1, 2, 2, 2])
 
         with r1:

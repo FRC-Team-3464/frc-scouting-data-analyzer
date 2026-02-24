@@ -10,30 +10,24 @@ def getTeamMatches(dataRoot, teamNum):
     strTeam = str(teamNum)
     if strTeam not in dataRoot:
         return []
-    # Convert map of matches into a list of matches
     return list(dataRoot[strTeam].values())
 
 
 def calculateWinChance(redStats, blueStats):
-    # Uses Normal Distribution (Mean=Likely, Sigma=(Range/6)) to find
-    # probability of Red Score > Blue Score.
     muRed = redStats["likely"]
     muBlue = blueStats["likely"]
 
     rangeRed = redStats["max"] - redStats["min"]
     rangeBlue = blueStats["max"] - blueStats["min"]
 
-    # Epsilon to prevent zero div error
     sigmaRed = rangeRed / 6 if rangeRed > 1 else 1.0
     sigmaBlue = rangeBlue / 6 if rangeBlue > 1 else 1.0
 
     muDiff = muRed - muBlue
     sigmaDiff = math.sqrt(sigmaRed**2 + sigmaBlue**2)
 
-    # Z-score where value is 0 (Tie)
     zScore = (0 - muDiff) / sigmaDiff
 
-    # Calculate Probability
     probBlueWins = 0.5 * (1 + math.erf(zScore / math.sqrt(2)))
     probRedWins = 1.0 - probBlueWins
 
@@ -43,7 +37,6 @@ def calculateWinChance(redStats, blueStats):
     }
 
 
-# 3. Auto algo
 def autoCalc(allTeams):
     def getTeamProfile(teamObj):
         historyPoints = []
@@ -56,7 +49,6 @@ def autoCalc(allTeams):
                 continue
             totalMatches += 1
 
-            # Fuel = 1, Level 1 Climb = 15 (if successful)
             points = match.get("autoFuel", 0)
             climbed = match.get("autoClimbed", False)
             if climbed:
@@ -82,11 +74,9 @@ def autoCalc(allTeams):
         failSet = []
 
         for i, score in enumerate(historyPoints):
-            # Check mixed case keying
             err = matches[i].get("robotError", {})
             isAutoStop = err.get("Auto stop", False)
 
-            # If Auto Stop occurred OR score was tragically low
             if score < successThreshold or isAutoStop:
                 failSet.append(score)
             else:
@@ -94,9 +84,6 @@ def autoCalc(allTeams):
 
         reliability = len(passSet) / len(historyPoints)
 
-        # Floor = Average of failures. If no failures recorded, Floor = Likely * 0.8
-        # Likely = Median of Successes.
-        # Ceiling = Max of Successes.
         if passSet:
             likelyTotal = statistics.median(passSet)
             ceilingTotal = max(passSet)
@@ -111,14 +98,13 @@ def autoCalc(allTeams):
             "reliability": reliability,
             "climbFreq": climbAttempts / totalMatches if totalMatches else 0,
             "floorTotal": floorTotal,
-            "likelyTotal": likelyTotal,  # Note: Includes climb points initially
+            "likelyTotal": likelyTotal,
             "ceilingTotal": ceilingTotal,
         }
 
     profiles = [getTeamProfile(t) for t in allTeams]
 
     def calculateAlliance(allianceProfiles):
-        # 3v3 Constraint: Only 2 Climbs allowed
         potentialClimbers = [p for p in allianceProfiles if p["climbFreq"] > 0.40]
         potentialClimbers.sort(key=lambda x: x["reliability"], reverse=True)
         allowedClimberIds = [p["id"] for p in potentialClimbers[:2]]
@@ -128,13 +114,11 @@ def autoCalc(allTeams):
         totalCeiling = 0
 
         for bot in allianceProfiles:
-            # We strip 15 points if they are a climber but NOT allowed due to rules
-            isClimber = bot["climbFreq"] > 0.40  # Simple heuristic check
+            isClimber = bot["climbFreq"] > 0.40
             pointsToRemove = (
                 15 if (isClimber and bot["id"] not in allowedClimberIds) else 0
             )
 
-            # Prevent negative scores
             totalFloor += max(0, bot["floorTotal"] - pointsToRemove)
             totalLikely += max(0, bot["likelyTotal"] - pointsToRemove)
             totalCeiling += max(0, bot["ceilingTotal"] - pointsToRemove)
@@ -155,11 +139,7 @@ def autoCalc(allTeams):
     return {"red": redStats, "blue": blueStats, "winner": winner}
 
 
-# teleop algo
-
-
 def teleopCalc(allTeams, autoWinner, defenseFactored=False):
-    # Constants
     TRANSITION_TIME = 10
     SHIFT_TIME = 25
     ENDGAME_TIME = 30
@@ -167,7 +147,7 @@ def teleopCalc(allTeams, autoWinner, defenseFactored=False):
 
     def getProfile(teamData):
         validMatches = 0
-        fuelRates = []  # List of avg fuel/sec per match
+        fuelRates = []
         endgamePts = []
         defenseCount = 0
 
@@ -175,7 +155,6 @@ def teleopCalc(allTeams, autoWinner, defenseFactored=False):
 
         for match in matches:
             err = match.get("robotError", {})
-            # Filter fatal errors (data sanitization)
             if any(
                 err.get(k, False)
                 for k in ["Emergency Stop", "Robot Unresponsive", "Robot unresponsive"]
@@ -186,11 +165,9 @@ def teleopCalc(allTeams, autoWinner, defenseFactored=False):
 
             validMatches += 1
 
-            # Check Defense (boolean check in shifts)
             if any(match.get(f"shift{i}Defense", False) for i in range(1, 5)):
                 defenseCount += 1 if defenseFactored else 0
 
-            # Calc Rate: Fuel Scored / Seconds Hub was Active for that specific match
             activeSecs = TRANSITION_TIME + ENDGAME_TIME
             matchFuel = match.get("transitionFuel", 0) + match.get("endgameFuel", 0)
 
@@ -202,7 +179,6 @@ def teleopCalc(allTeams, autoWinner, defenseFactored=False):
             if activeSecs > 0:
                 fuelRates.append(matchFuel / activeSecs)
 
-            # Endgame
             lvl = str(match.get("endgameClimbLevel", "0"))
             pts = 0
             if lvl == "1":
@@ -228,8 +204,8 @@ def teleopCalc(allTeams, autoWinner, defenseFactored=False):
         return {
             "minR": fuelRates[0],
             "likelyR": statistics.median(fuelRates),
-            "maxR": fuelRates[-1],  # Max observed throughput
-            "endMin": 0,  # Assume fall
+            "maxR": fuelRates[-1],
+            "endMin": 0,
             "endLikely": statistics.mean(endgamePts) if endgamePts else 0,
             "endMax": max(endgamePts) if endgamePts else 0,
             "defRating": defenseCount / validMatches,
@@ -240,7 +216,6 @@ def teleopCalc(allTeams, autoWinner, defenseFactored=False):
     redProfs = profiles[0:3]
     blueProfs = profiles[3:6]
 
-    # Set Schedules based on Auto
     if autoWinner == "Red":
         redSched, blueSched = [False, True, False, True], [True, False, True, False]
     elif autoWinner == "Blue":
@@ -251,39 +226,32 @@ def teleopCalc(allTeams, autoWinner, defenseFactored=False):
             True,
             True,
             True,
-        ]  # Average out tie
+        ]
 
-    # Calculate Alliance Pressure (how much they hurt opponents)
-    redPress = min(
-        sum(p["defRating"] for p in redProfs) * 0.15, 0.40
-    )  # Cap 40% reduction
+    redPress = min(sum(p["defRating"] for p in redProfs) * 0.15, 0.40)
     bluePress = min(sum(p["defRating"] for p in blueProfs) * 0.15, 0.40)
 
     def runSim(myProfs, mySched, oppSched, oppPress, mode):
-        # Pick rate stats based on mode (min/likely/max)
         rateKey = f"{mode}R"
         endKey = f"end{mode.capitalize()}"
 
-        # Determine congestion and defensive environment
-        congestion = 0.90  # Standard traffic
+        congestion = 0.90
         defenseMod = 0.0
 
         if mode == "min":
             congestion = 0.80
-            defenseMod = oppPress  # Full pressure applied
+            defenseMod = oppPress
         elif mode == "max":
-            congestion = 1.0  # Perfect coordination
-            defenseMod = 0.0  # Opponents miss defense
+            congestion = 1.0
+            defenseMod = 0.0
 
         baseRate = sum(p[rateKey] for p in myProfs) * congestion
 
         score = 0
         hopper = 0
 
-        # 1. Transition
         score += baseRate * TRANSITION_TIME
 
-        # 2. Shifts
         for i in range(4):
             isActive = mySched[i]
             oppIsActive = oppSched[i]
@@ -304,10 +272,8 @@ def teleopCalc(allTeams, autoWinner, defenseFactored=False):
                 if hopper > ALLIANCE_CAP:
                     hopper = ALLIANCE_CAP
 
-        # 3. Endgame Scoring
-        score += (baseRate * 15) + hopper  # 15s scoring / 15s climbing
+        score += (baseRate * 15) + hopper
 
-        # 4. Endgame Climbs
         score += sum(p[endKey] for p in myProfs)
 
         return round(score, 1)
@@ -328,12 +294,9 @@ def teleopCalc(allTeams, autoWinner, defenseFactored=False):
 
 
 def main(redAlliance, blueAlliance):
-    # 1. Parse JSON
-    with open("fetched_data.json", "r") as inFile:
+    with open("jsons/fetchedData.json", "r") as inFile:
         rawJsonString = inFile.read()
     jsonData = json.loads(rawJsonString)
-
-    # 2. Define Teams (Using IDs available in the data)
 
     allTeamsList = []
     for tNum in redAlliance + blueAlliance:
@@ -343,11 +306,9 @@ def main(redAlliance, blueAlliance):
         }
         allTeamsList.append(tObj)
 
-    # 3. Predictions
     autoRes = autoCalc(allTeamsList)
     teleRes = teleopCalc(allTeamsList, autoRes["winner"])
 
-    # 4. Sum Totals for Probability
     redFinal = {
         "min": round(autoRes["red"]["min"] + teleRes["red"]["min"], 1),
         "likely": round(autoRes["red"]["likely"] + teleRes["red"]["likely"], 1),
@@ -362,7 +323,6 @@ def main(redAlliance, blueAlliance):
 
     winChances = calculateWinChance(redFinal, blueFinal)
 
-    # 5. Pretty Print Output
     output = {
         "Red_Alliance": {
             "Teams": redAlliance,
@@ -380,7 +340,7 @@ def main(redAlliance, blueAlliance):
         },
     }
 
-    with open("teamPredictor.json", "w") as outFile:
+    with open("jsons/teamPredictor.json", "w") as outFile:
         json.dump(output, outFile, indent=4)
 
 

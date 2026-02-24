@@ -14,11 +14,11 @@ def fetch(method):
     if response.status_code == 200:
         data = response.json()
         print(f"Successfully fetched {len(data)} matches!")
-        with open(f"{method}.json", "w") as w:
+        with open(f"jsons/{method}.json", "w") as w:
             json.dump(data, w, indent=4)
     else:
         print(f"Error {response.status_code}: {response.text}")
 
 
 if __name__ == "__main__":
-    fetch(method1)
+    fetch(method)
