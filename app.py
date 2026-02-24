@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import time
 import json
 import os
 from PIL import Image
@@ -11,7 +12,10 @@ from fetchfromdb import fetch as ffetch
 from pieceviewer import processTeamAverages
 from json_to_csv import convert_avgs_to_csv
 from st_image_button import st_image_button
-ffetch()
+from teamPredictor import main as predict
+from stdTeamPredictor import predict as stdpred
+
+#ffetch()
 bfetch("matches")
 bfetch("rankings")
 with open("avgs.json", "w") as goy:
@@ -458,6 +462,8 @@ with tab3:
     if __name__ == "__main__":
         main()
 with tab4:
+    stdpred()
+    time.sleep(1)
     with open("teamPredictor1.json", "r") as goy:
         stds = json.load(goy)
 
@@ -466,12 +472,56 @@ with tab4:
 
 
 with tab5:
-    with open("teamPredictor.json", "r") as goy:
-        preds = json.load(goy)
+    col0, col1, col2, col3 = st.columns(4)
+    reds, blues = "", ""
+    rmin, ravg, rmax, bmin, bavg, bmax, rwin, bwin, = 0,0,0,0,0,0,0,0
 
-    reds = preds.get("red_alliance", {})
-    blues = preds.get("blue_alliance", {})
+    with col0:
+        st.markdown("### red")
+        st.number_input("", key="rteam1", value=0)
+        st.number_input("", key="rteam2", value=0)
+        st.number_input("", key="rteam3", value=0)
 
-    rteams = reds.get("Teams", [])
-    bteams = blues.get("Teams", [])
-    st.markdown(f"## ")
+    with col1:
+        st.markdown("### blue")
+        st.number_input("", key="bteam1", value=0)
+        st.number_input("", key="bteam2", value=0)
+        st.number_input("", key="bteam3", value=0)
+
+    with col2:  
+        if (st_image_button("mango", width=125)): 
+            if (st.session_state.get("rteam1", 0) != 0):
+                predict([st.session_state.get("rteam1"), st.session_state.get("rteam2"), st.session_state.get("rteam3")], [st.session_state.get("bteam1"), st.session_state.get("bteam2"), st.session_state.get("bteam3")])
+                print("waiting")
+                time.sleep(3)
+                with open("teamPredictor.json", "r") as goy:
+                    preds = json.load(goy)
+
+                reds = preds.get("Red_Alliance", {})
+                blues = preds.get("Blue_Alliance", {})
+
+                rmin = reds.get("Score_Prediction", {}).get("min", 0)
+                ravg = reds.get("Score_Prediction", {}).get("likely", 0)
+                rmax = reds.get("Score_Prediction", {}).get("max", 0)
+
+                bmin = blues.get("Score_Prediction", {}).get("min", 0)
+                bavg = blues.get("Score_Prediction", {}).get("likely", 0)
+                bmax = blues.get("Score_Prediction", {}).get("max", 0)
+
+                rwin = reds.get("Win_Chance", 0)
+                bwin = blues.get("Win_Chance", 0)
+
+                print(preds)
+    with col3:
+        st.markdown(f"## RED")
+        st.markdown(f"Min: {rmin}")
+        st.markdown(f"Likely: {ravg}")
+        st.markdown(f"Max: {rmax}")
+        st.markdown(f"Win chance: {rwin}")
+
+        st.markdown(f"## BLUE")
+        st.markdown(f"Min: {bmin}")
+        st.markdown(f"Likely: {bavg}")
+        st.markdown(f"Max: {bmax}")
+        st.markdown(f"Win chance: {bwin}")
+

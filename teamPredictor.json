@@ -1,9 +1,9 @@
 {
     "Red_Alliance": {
         "Teams": [
-            5962,
-            5962,
-            6328
+            6328,
+            1721,
+            1721
         ],
         "Score_Prediction": {
             "min": 80.1,
@@ -14,9 +14,9 @@
     },
     "Blue_Alliance": {
         "Teams": [
-            501,
+            811,
             5813,
-            811
+            501
         ],
         "Score_Prediction": {
             "min": 12.2,

@@ -1,5 +1,8 @@
-output/
-applogging/
+matches.json
+rankings.json
+teamPredictor.json
+teamPredictor1.json
 fetched_data.json
 __pycache__/
-tba_matches
+
+

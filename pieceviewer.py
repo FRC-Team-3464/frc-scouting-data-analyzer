@@ -78,6 +78,7 @@ def processTeamAverages(filePath, teams=None):
             tempAutoClimb += (1 if matchData.get("autoClimbed") else 0)
             
             if matchData.get("endgameClimbLevel") != "Didn't climb":
+                print(matchData.get("endgameClimbLevel"), "")
                 tempEndgameClimbPoints.append(
                     (int(matchData.get("endgameClimbLevel", "")[5:]) * 5)
                 )

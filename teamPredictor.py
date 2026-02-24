@@ -1,158 +1,390 @@
 import json
 import statistics
 import math
+import os
+import sys
+import time
 
 
-def determine_winner(red_min, red_max, blue_min, blue_max):
-    if red_min > blue_max:
-        return "Red Win"
-    elif blue_min > red_max:
-        return "Blue Win"
-    else:
-        return "Too Close"
+def getTeamMatches(dataRoot, teamNum):
+    strTeam = str(teamNum)
+    if strTeam not in dataRoot:
+        return []
+    # Convert map of matches into a list of matches
+    return list(dataRoot[strTeam].values())
 
 
-def get_team_matches(data_root, team_num):
-    t_str = str(team_num)
-    return list(data_root.get(t_str, {}).values())
+def calculateWinChance(redStats, blueStats):
+    # Uses Normal Distribution (Mean=Likely, Sigma=(Range/6)) to find
+    # probability of Red Score > Blue Score.
+    muRed = redStats["likely"]
+    muBlue = blueStats["likely"]
 
+    rangeRed = redStats["max"] - redStats["min"]
+    rangeBlue = blueStats["max"] - blueStats["min"]
 
-def calculate_fuel(data_root, alliance_teams):
-    total_fuel_points = 0
-    for team in alliance_teams:
-        matches = get_team_matches(data_root, team)
-        if not matches:
-            continue
+    # Epsilon to prevent zero div error
+    sigmaRed = rangeRed / 6 if rangeRed > 1 else 1.0
+    sigmaBlue = rangeBlue / 6 if rangeBlue > 1 else 1.0
 
-        scores = []
-        for m in matches:
-            match_fuel = m.get("autoFuel", 0)
-            match_fuel += m.get("transitionFuel", 0) + m.get("endgameFuel", 0)
-            for i in range(1, 5):
-                if m.get(f"shift{i}HubActive", False):
-                    match_fuel += m.get(f"shift{i}Fuel", 0)
-            scores.append(match_fuel)
+    muDiff = muRed - muBlue
+    sigmaDiff = math.sqrt(sigmaRed**2 + sigmaBlue**2)
 
-        if scores:
-            total_fuel_points += statistics.mean(scores)
+    # Z-score where value is 0 (Tie)
+    zScore = (0 - muDiff) / sigmaDiff
 
-    return total_fuel_points
-
-
-def calculate_tower(data_root, alliance_teams):
-    total_climb_points = 0
-    for team in alliance_teams:
-        matches = get_team_matches(data_root, team)
-        if not matches:
-            continue
-
-        scores = []
-        for m in matches:
-            p = 15 if m.get("autoClimbed") else 0
-
-            lvl = str(m.get("endgameClimbLevel", "0"))
-            if lvl == "Level 1":
-                p += 10
-            elif lvl == "Level 2":
-                p += 20
-            elif lvl == "Level 3":
-                p += 30
-            scores.append(p)
-
-        if scores:
-            total_climb_points += statistics.mean(scores)
-
-    return total_climb_points
-
-
-def calculate_stdev(data_root, alliance_teams):
-    sum_of_variances = 0
-
-    for team in alliance_teams:
-        matches = get_team_matches(data_root, team)
-        if len(matches) < 2:
-            continue
-
-        team_total_scores = []
-        for m in matches:
-            score = m.get("autoFuel", 0)
-            score += m.get("transitionFuel", 0) + m.get("endgameFuel", 0)
-            for i in range(1, 5):
-                if m.get(f"shift{i}HubActive", False):
-                    score += m.get(f"shift{i}Fuel", 0)
-
-            lvl = str(m.get("endgameClimbLevel", "0"))
-            if lvl == "Level 1":
-                score += 10
-            elif lvl == "Level 2":
-                score += 20
-            elif lvl == "Level 3":
-                score += 30
-
-            if m.get("autoClimbed"):
-                score += 15
-
-            team_total_scores.append(score)
-
-        sum_of_variances += statistics.variance(team_total_scores)
-
-    return math.sqrt(sum_of_variances)
-
-
-def game_predictor(json_input, red_teams, blue_teams, percent_stdev):
-    data_root = json_input.get("root", {})
-
-    red_fuel = calculate_fuel(data_root, red_teams)
-    red_tower = calculate_tower(data_root, red_teams)
-
-    blue_fuel = calculate_fuel(data_root, blue_teams)
-    blue_tower = calculate_tower(data_root, blue_teams)
-
-    red_total = red_fuel + red_tower
-    blue_total = blue_fuel + blue_tower
-
-    red_raw_stdev = calculate_stdev(data_root, red_teams)
-    blue_raw_stdev = calculate_stdev(data_root, blue_teams)
-
-    red_adj_stdev = red_raw_stdev * percent_stdev
-    blue_adj_stdev = blue_raw_stdev * percent_stdev
-
-    blue_min = blue_total - blue_adj_stdev
-    blue_max = blue_total + blue_adj_stdev
-    red_min = red_total - red_adj_stdev
-    red_max = red_total + red_adj_stdev
-
-    if blue_min < 0:
-        blue_min = 0
-    if red_min < 0:
-        red_min = 0
-
-    result_text = determine_winner(red_min, red_max, blue_min, blue_max)
+    # Calculate Probability
+    probBlueWins = 0.5 * (1 + math.erf(zScore / math.sqrt(2)))
+    probRedWins = 1.0 - probBlueWins
 
     return {
-        "output_cell": f"{result_text}s blue {blue_total: .2f} to red {red_total: .2f}",
-        "confidence_factor_used": percent_stdev,
-        "calculation_data": {
-            "red_range": [round(red_min), round(red_max)],
-            "blue_range": [round(blue_min), round(blue_max)],
-            "red_total": round(red_total),
-            "blue_total": round(blue_total),
-        },
+        "redWinPct": round(probRedWins * 100, 1),
+        "blueWinPct": round(probBlueWins * 100, 1),
     }
 
 
-if __name__ == "__main__":
+# 3. Auto algo
+def autoCalc(allTeams):
+    def getTeamProfile(teamObj):
+        historyPoints = []
+        climbAttempts = 0
+        totalMatches = 0
+        matches = teamObj.get("matches", [])
 
+        for match in matches:
+            if match.get("robotError", {}).get("Did not participate", False):
+                continue
+            totalMatches += 1
+
+            # Fuel = 1, Level 1 Climb = 15 (if successful)
+            points = match.get("autoFuel", 0)
+            climbed = match.get("autoClimbed", False)
+            if climbed:
+                points += 15
+                climbAttempts += 1
+
+            historyPoints.append(points)
+
+        if not historyPoints:
+            return {
+                "id": teamObj["teamNumber"],
+                "reliability": 0.0,
+                "climbFreq": 0.0,
+                "floorTotal": 0,
+                "likelyTotal": 0,
+                "ceilingTotal": 0,
+                "maxScore": 0,
+            }
+
+        maxScore = max(historyPoints)
+        successThreshold = maxScore * 0.5
+        passSet = []
+        failSet = []
+
+        for i, score in enumerate(historyPoints):
+            # Check mixed case keying
+            err = matches[i].get("robotError", {})
+            isAutoStop = err.get("Auto stop", False)
+
+            # If Auto Stop occurred OR score was tragically low
+            if score < successThreshold or isAutoStop:
+                failSet.append(score)
+            else:
+                passSet.append(score)
+
+        reliability = len(passSet) / len(historyPoints)
+
+        # Floor = Average of failures. If no failures recorded, Floor = Likely * 0.8
+        # Likely = Median of Successes.
+        # Ceiling = Max of Successes.
+        if passSet:
+            likelyTotal = statistics.median(passSet)
+            ceilingTotal = max(passSet)
+        else:
+            likelyTotal = 0
+            ceilingTotal = 0
+
+        floorTotal = statistics.mean(failSet) if failSet else (likelyTotal * 0.8)
+
+        return {
+            "id": teamObj["teamNumber"],
+            "reliability": reliability,
+            "climbFreq": climbAttempts / totalMatches if totalMatches else 0,
+            "floorTotal": floorTotal,
+            "likelyTotal": likelyTotal,  # Note: Includes climb points initially
+            "ceilingTotal": ceilingTotal,
+        }
+
+    profiles = [getTeamProfile(t) for t in allTeams]
+
+    def calculateAlliance(allianceProfiles):
+        # 3v3 Constraint: Only 2 Climbs allowed
+        potentialClimbers = [p for p in allianceProfiles if p["climbFreq"] > 0.40]
+        potentialClimbers.sort(key=lambda x: x["reliability"], reverse=True)
+        allowedClimberIds = [p["id"] for p in potentialClimbers[:2]]
+
+        totalFloor = 0
+        totalLikely = 0
+        totalCeiling = 0
+
+        for bot in allianceProfiles:
+            # We strip 15 points if they are a climber but NOT allowed due to rules
+            isClimber = bot["climbFreq"] > 0.40  # Simple heuristic check
+            pointsToRemove = (
+                15 if (isClimber and bot["id"] not in allowedClimberIds) else 0
+            )
+
+            # Prevent negative scores
+            totalFloor += max(0, bot["floorTotal"] - pointsToRemove)
+            totalLikely += max(0, bot["likelyTotal"] - pointsToRemove)
+            totalCeiling += max(0, bot["ceilingTotal"] - pointsToRemove)
+
+        return {
+            "min": round(totalFloor, 1),
+            "likely": round(totalLikely, 1),
+            "max": round(totalCeiling, 1),
+        }
+
+    redStats = calculateAlliance(profiles[0:3])
+    blueStats = calculateAlliance(profiles[3:6])
+
+    winner = "Red" if redStats["likely"] > blueStats["likely"] else "Blue"
+    if redStats["likely"] == blueStats["likely"]:
+        winner = "Tie"
+
+    return {"red": redStats, "blue": blueStats, "winner": winner}
+
+
+# teleop algo
+
+
+def teleopCalc(allTeams, autoWinner, defenseFactored=False):
+    # Constants
+    TRANSITION_TIME = 10
+    SHIFT_TIME = 25
+    ENDGAME_TIME = 30
+    ALLIANCE_CAP = 24
+
+    def getProfile(teamData):
+        validMatches = 0
+        fuelRates = []  # List of avg fuel/sec per match
+        endgamePts = []
+        defenseCount = 0
+
+        matches = teamData.get("matches", [])
+
+        for match in matches:
+            err = match.get("robotError", {})
+            # Filter fatal errors (data sanitization)
+            if any(
+                err.get(k, False)
+                for k in ["Emergency Stop", "Robot Unresponsive", "Robot unresponsive"]
+            ):
+                continue
+            if err.get("Did not participate", False):
+                continue
+
+            validMatches += 1
+
+            # Check Defense (boolean check in shifts)
+            if any(match.get(f"shift{i}Defense", False) for i in range(1, 5)):
+                defenseCount += 1 if defenseFactored else 0
+
+            # Calc Rate: Fuel Scored / Seconds Hub was Active for that specific match
+            activeSecs = TRANSITION_TIME + ENDGAME_TIME
+            matchFuel = match.get("transitionFuel", 0) + match.get("endgameFuel", 0)
+
+            for i in range(1, 5):
+                if match.get(f"shift{i}HubActive", False):
+                    activeSecs += SHIFT_TIME
+                    matchFuel += match.get(f"shift{i}Fuel", 0)
+
+            if activeSecs > 0:
+                fuelRates.append(matchFuel / activeSecs)
+
+            # Endgame
+            lvl = str(match.get("endgameClimbLevel", "0"))
+            pts = 0
+            if lvl == "1":
+                pts = 10
+            elif lvl == "2":
+                pts = 20
+            elif lvl == "3":
+                pts = 30
+            endgamePts.append(pts)
+
+        if not fuelRates:
+            return {
+                "minR": 0,
+                "likelyR": 0,
+                "maxR": 0,
+                "endMin": 0,
+                "endLikely": 0,
+                "endMax": 0,
+                "defRating": 0,
+            }
+
+        fuelRates.sort()
+        return {
+            "minR": fuelRates[0],
+            "likelyR": statistics.median(fuelRates),
+            "maxR": fuelRates[-1],  # Max observed throughput
+            "endMin": 0,  # Assume fall
+            "endLikely": statistics.mean(endgamePts) if endgamePts else 0,
+            "endMax": max(endgamePts) if endgamePts else 0,
+            "defRating": defenseCount / validMatches,
+        }
+
+    profiles = [getProfile(t) for t in allTeams]
+    print(profiles)
+    redProfs = profiles[0:3]
+    blueProfs = profiles[3:6]
+
+    # Set Schedules based on Auto
+    if autoWinner == "Red":
+        redSched, blueSched = [False, True, False, True], [True, False, True, False]
+    elif autoWinner == "Blue":
+        redSched, blueSched = [True, False, True, False], [False, True, False, True]
+    else:
+        redSched, blueSched = [True, True, True, True], [
+            True,
+            True,
+            True,
+            True,
+        ]  # Average out tie
+
+    # Calculate Alliance Pressure (how much they hurt opponents)
+    redPress = min(
+        sum(p["defRating"] for p in redProfs) * 0.15, 0.40
+    )  # Cap 40% reduction
+    bluePress = min(sum(p["defRating"] for p in blueProfs) * 0.15, 0.40)
+
+    def runSim(myProfs, mySched, oppSched, oppPress, mode):
+        # Pick rate stats based on mode (min/likely/max)
+        rateKey = f"{mode}R"
+        endKey = f"end{mode.capitalize()}"
+
+        # Determine congestion and defensive environment
+        congestion = 0.90  # Standard traffic
+        defenseMod = 0.0
+
+        if mode == "min":
+            congestion = 0.80
+            defenseMod = oppPress  # Full pressure applied
+        elif mode == "max":
+            congestion = 1.0  # Perfect coordination
+            defenseMod = 0.0  # Opponents miss defense
+
+        baseRate = sum(p[rateKey] for p in myProfs) * congestion
+
+        score = 0
+        hopper = 0
+
+        # 1. Transition
+        score += baseRate * TRANSITION_TIME
+
+        # 2. Shifts
+        for i in range(4):
+            isActive = mySched[i]
+            oppIsActive = oppSched[i]
+
+            currentEfficiency = 1.0
+            if isActive and not oppIsActive:
+                currentEfficiency = 1.0 - defenseMod
+
+            throughput = baseRate * currentEfficiency
+
+            if autoWinner == "Tie":
+                score += throughput * SHIFT_TIME
+            elif isActive:
+                score += (throughput * SHIFT_TIME) + hopper
+                hopper = 0
+            else:
+                hopper += throughput * SHIFT_TIME
+                if hopper > ALLIANCE_CAP:
+                    hopper = ALLIANCE_CAP
+
+        # 3. Endgame Scoring
+        score += (baseRate * 15) + hopper  # 15s scoring / 15s climbing
+
+        # 4. Endgame Climbs
+        score += sum(p[endKey] for p in myProfs)
+
+        return round(score, 1)
+
+    return {
+        "red": {
+            "min": runSim(redProfs, redSched, blueSched, bluePress, "min"),
+            "likely": runSim(redProfs, redSched, blueSched, bluePress, "likely"),
+            "max": runSim(redProfs, redSched, blueSched, bluePress, "max"),
+        },
+        "blue": {
+            "min": runSim(blueProfs, blueSched, redSched, redPress, "min"),
+            "likely": runSim(blueProfs, blueSched, redSched, redPress, "likely"),
+            "max": runSim(blueProfs, blueSched, redSched, redPress, "max"),
+        },
+        "schedWinner": autoWinner,
+    }
+
+
+def main(redAlliance, blueAlliance):
+    # 1. Parse JSON
     with open("fetched_data.json", "r") as inFile:
         rawJsonString = inFile.read()
-    data = json.loads(rawJsonString)
-    redAlliance = [811, 1768, 1512]
-    blueAlliance = [5687, 9644, 131]
-    stdev_input = 1.0
+    jsonData = json.loads(rawJsonString)
 
-    with open("teamPredictor1.json", "w") as outFile:
-        json.dump(
-            game_predictor(data, redAlliance, blueAlliance, stdev_input),
-            outFile,
-            indent=4,
-        )
+    # 2. Define Teams (Using IDs available in the data)
+
+    allTeamsList = []
+    for tNum in redAlliance + blueAlliance:
+        tObj = {
+            "teamNumber": tNum,
+            "matches": getTeamMatches(jsonData.get("root", {}), tNum),
+        }
+        allTeamsList.append(tObj)
+
+    # 3. Predictions
+    autoRes = autoCalc(allTeamsList)
+    teleRes = teleopCalc(allTeamsList, autoRes["winner"])
+
+    # 4. Sum Totals for Probability
+    redFinal = {
+        "min": round(autoRes["red"]["min"] + teleRes["red"]["min"], 1),
+        "likely": round(autoRes["red"]["likely"] + teleRes["red"]["likely"], 1),
+        "max": round(autoRes["red"]["max"] + teleRes["red"]["max"], 1),
+    }
+
+    blueFinal = {
+        "min": round(autoRes["blue"]["min"] + teleRes["blue"]["min"], 1),
+        "likely": round(autoRes["blue"]["likely"] + teleRes["blue"]["likely"], 1),
+        "max": round(autoRes["blue"]["max"] + teleRes["blue"]["max"], 1),
+    }
+
+    winChances = calculateWinChance(redFinal, blueFinal)
+
+    # 5. Pretty Print Output
+    output = {
+        "Red_Alliance": {
+            "Teams": redAlliance,
+            "Score_Prediction": redFinal,
+            "Win_Chance": f"{winChances["redWinPct"]}%",
+        },
+        "Blue_Alliance": {
+            "Teams": blueAlliance,
+            "Score_Prediction": blueFinal,
+            "Win_Chance": f"{winChances["blueWinPct"]}%",
+        },
+        "Simulation_Details": {
+            "Auto_Winner": autoRes["winner"],
+            "Schedule": f"{autoRes["winner"]} controls cycle flow.",
+        },
+    }
+
+    with open("teamPredictor.json", "w") as outFile:
+        json.dump(output, outFile, indent=4)
+
+
+if __name__ == "__main__":
+    start = time.time()
+    main([5962, 5962, 6328], [501, 5813, 811])
+    print(f"Prediction completed in {time.time() - start:.2f} seconds.")
