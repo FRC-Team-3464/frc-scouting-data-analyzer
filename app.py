@@ -228,7 +228,6 @@ with tab1:
 
         st.dataframe(
             styled_df,
-            use_container_width=True,
             height=600,
             column_config={
                 "notes": st.column_config.TextColumn(width=250),
@@ -346,7 +345,6 @@ with tab2:
             "avgTotalFuel",
         ),
         hide_index=True,
-        use_container_width=True,
         disabled=True,
         key="chud",
     )
@@ -444,7 +442,7 @@ with tab3:
                     checkLabels.append(f"Wrong Scouter: {actualScouterName}")
                     checkColors.append("#636300")  # Yellow
                 else:
-                    checkLabels.append("Missing")
+                    checkLabels.append(f"Missing: {actualScouterName}" )
                     checkColors.append("#8B0000")  # Red
 
             r1, r2, r3, r4 = st.columns([1, 2, 2, 2])
@@ -468,6 +466,8 @@ with tab3:
                 )
 
             st.divider()
+    
+    if __name__ == "__main__":
         main()
 
 
@@ -496,7 +496,7 @@ with tab4:
         for i, m in enumerate(ranked, start=1):
             dictRank[f"{i}"] = m
         st.dataframe(
-            key="chud2dictRank", data=dictRank, use_container_width=True, height=500
+            key="chud2dictRank", data=dictRank, height=500
         )
 
     with col2:
@@ -564,7 +564,7 @@ with tab5:
         dictRank = {}
         for i, m in enumerate(ranked, start=1):
             dictRank[f"{i}"] = m
-        st.dataframe(dictRank, use_container_width=True, height=500)
+        st.dataframe(dictRank, height=500)
     with col2:
         if submit:
             if st.session_state.get("rteam1", 0) != 0:
