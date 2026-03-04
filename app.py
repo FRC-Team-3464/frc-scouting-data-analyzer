@@ -111,9 +111,9 @@ allRows = loadAndFlattenData(data_path)
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
     ["data", "ranker", "matches", "STD predictor", "Game Predictor"]
 )
-df = pd.DataFrame(pd.read_csv("avgs.csv"))
+df = pd.DataFrame(pd.read_csv("jsons/avgs.csv"))
 
-extra_df = pd.DataFrame(pd.read_csv("custom.csv"))
+extra_df = pd.DataFrame(pd.read_csv("mult.csv"))
 
 
 def update(m1, m2, m3, m4, m5, m6):
@@ -125,9 +125,9 @@ def update(m1, m2, m3, m4, m5, m6):
         "multiplier5": m5,
         "multiplier6": m6,
     }
-    extra_df = pd.read_csv("custom.csv")
+    extra_df = pd.read_csv("mult.csv")
     extra_df = pd.concat([extra_df, pd.DataFrame([row])], ignore_index=True)
-    extra_df.to_csv("custom.csv", index=False)
+    extra_df.to_csv("mult.csv", index=False)
 
 
 max_rows = len(df[["teamNumber"]])
@@ -142,7 +142,7 @@ criteria_mapping = {
     "Climb": "endgameAvgClimbPoints",
 }
 
-extra_df = pd.DataFrame(pd.read_csv("custom.csv"))
+extra_df = pd.DataFrame(pd.read_csv("mult.csv"))
 
 
 def update(m1, m2, m3, m4, m5, m6):
@@ -154,9 +154,9 @@ def update(m1, m2, m3, m4, m5, m6):
         "multiplier5": m5,
         "multiplier6": 1,
     }
-    extra_df = pd.read_csv("custom.csv")
+    extra_df = pd.read_csv("mult.csv")
     extra_df = pd.concat([extra_df, pd.DataFrame([row])], ignore_index=True)
-    extra_df.to_csv("custom.csv", index=False)
+    extra_df.to_csv("mult.csv", index=False)
 
 
 max_rows = len(df[["teamNumber"]])
@@ -241,7 +241,7 @@ with tab1:
     else:
         st.warning("No data to display. Please ensure jsons/fetchedData.json exists.")
 with tab2:
-    df = pd.read_csv("avgs.csv")
+    df = pd.read_csv("jsons/avgs.csv")
     col1, col2, col3, col4, col5, col6, col7, col8 = st.columns(8)
     label = "multiplier"
     if "Pickability" in df.columns:
@@ -258,7 +258,7 @@ with tab2:
                 st.session_state.get("multiplier_5", 1.00),
                 st.session_state.get("multiplier_6", 1.00),
             )
-            extra_df = pd.DataFrame(pd.read_csv("custom.csv"))
+            extra_df = pd.DataFrame(pd.read_csv("mult.csv"))
             df["avgAutoFuel"] = (
                 df["avgAutoFuel"].astype(float) * extra_df.iloc[-1][f"multiplier1"]
             )
@@ -372,13 +372,15 @@ with tab3:
 
     def main():
         st.set_page_config(page_title="Match Schedule", layout="wide")
-        st.title("📋 Match Schedule & Scout Verification")
+        st.title("Match Schedule & Scout Verification")
 
         try:
             with open("jsons/matches.json", "r") as file:
                 matchList = json.load(file)
+
+            matchList.sort(key=lambda x: x.get("match_number", 0))
         except (FileNotFoundError, json.JSONDecodeError):
-            st.error("Error: Could not load tba_jsons/matches.json.")
+            st.error("Error: Could not load jsons/matches.json.")
             return
 
         try:
@@ -396,7 +398,9 @@ with tab3:
         st.divider()
 
         for idx, match in enumerate(matchList):
-            if not isinstance(match, dict):
+            if (not isinstance(match, dict)) or not match.get(
+                "comp_level", "qm"
+            ) == "qm":
                 continue
 
             matchNum = match.get("match_number", idx + 1)
@@ -439,7 +443,7 @@ with tab3:
                     checkLabels.append(f"Verified: {actualScouterName}")
                     checkColors.append("#00ff1e")  # Green
                 elif actualScouterName != "":
-                    checkLabels.append(f"Wrong Scouter: {actualScouterName}")
+                    checkLabels.append(f"Scouter: {actualScouterName}")
                     checkColors.append("#636300")  # Yellow
                 else:
                     checkLabels.append(f"Missing: {actualScouterName}" )

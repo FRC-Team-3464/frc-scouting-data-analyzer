@@ -14,10 +14,10 @@ def read_matches():
 
         return ranked
     except FileNotFoundError:
-        print("Error: tba_jsons/matches.json not found.")
+        print("Error: jsons/matches.json not found.")
         return None
     except json.JSONDecodeError:
-        print("Error: Failed to parse tba_jsons/matches.json")
+        print("Error: Failed to parse jsons/matches.json")
         return None
 
 

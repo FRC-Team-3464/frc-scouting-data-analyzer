@@ -30,10 +30,10 @@ def main():
     st.title("Match Schedule & Scout Verification")
 
     try:
-        with open("tba_jsons/matches.json", "r") as file:
+        with open("jsons/matches.json", "r") as file:
             matchList = json.load(file)
     except (FileNotFoundError, json.JSONDecodeError):
-        st.error("Error: Could not load tba_jsons/matches.json.")
+        st.error("Error: Could not load jsons/matches.json.")
         return
 
     try:
