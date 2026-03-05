@@ -14,12 +14,9 @@ from st_image_button import st_image_button
 from teamPredictor import main as predict
 from stdTeamPredictor import predict as stdPred
 
-"""
-required pip installs:
-pip install streamlit pandas st_image_button requests
-
-with python 3.13
-"""
+# required pip installs:
+# pip install streamlit pandas st_image_button requests
+# with python 3.13
 
 # ffetch()
 bFetch("matches")
