@@ -1,6 +1,4 @@
 import json
-from bokeh.io import output_file, save
-from bokeh.models import ColumnDataSource, DataTable, TableColumn, HTMLTemplateFormatter
 
 COLUMN_ORDER = [
     "teamNumber",
@@ -89,7 +87,6 @@ def processTeamAverages(filePath, teams=None):
             if matchData.get("endgameClimbLevel") != "Didn't climb" and matchData.get(
                 "endgameClimbLevel", ""
             ).startswith("Level "):
-                print(matchData.get("endgameClimbLevel"), "")
                 tempEndgameClimbPoints.append(
                     (int(matchData.get("endgameClimbLevel", "")[5:]) * 5)
                 )

@@ -1,8 +1,7 @@
 import json
 import csv
-import os
 
-def convert_avgs_to_csv(json_file="jsons/avgs.json", csv_file="jsons/avgs.csv"):
+def convertAvgsToCsv(json_file="jsons/avgs.json", csv_file="jsons/avgs.csv"):
     """Convert jsons/avgs.json to CSV format."""
     try:
         with open(json_file, "r") as f:
