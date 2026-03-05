@@ -44,17 +44,26 @@ COLUMN_ORDER = [
     "autoUnderTrench",
     "autoClimbed",
     "transitionFuel",
+    "transitionCollected"
     "shift1HubActive",
     "shift1Fuel",
+    "shift1HoardedFuel",
+    "shift1Collected",
     "shift1Defense",
     "shift2HubActive",
     "shift2Fuel",
+    "shift2HoardedFuel",
+    "shift2Collected",
     "shift2Defense",
     "shift3HubActive",
     "shift3Fuel",
+    "shift3HoardedFuel",
+    "shift3Collected",
     "shift3Defense",
     "shift4HubActive",
     "shift4Fuel",
+    "shift4HoardedFuel",
+    "shift4Collected",
     "shift4Defense",
     "endgameFuel",
     "endgameClimbLevel",
@@ -62,6 +71,8 @@ COLUMN_ORDER = [
     "underTrench",
     "robotError",
     "notes",
+    "static",
+    "multiTurret",
 ]
 
 NUMERIC_GRADIENT_COLUMNS = [
@@ -158,6 +169,7 @@ def update(m1, m2, m3, m4, m5, m6):
     extra_df = pd.concat([extra_df, pd.DataFrame([row])], ignore_index=True)
     extra_df.to_csv("mult.csv", index=False)
 
+
 max_rows = len(df[["teamNumber"]])
 
 with tab0:
@@ -197,6 +209,7 @@ with tab0:
             total_fuel = alliance_data["avgTotalFuel"].sum()
             st.metric(f"{color_label} Total Avg", f"{total_fuel:.2f}")
             st.divider()
+
     display_alliance_section(get_alliance_table(red_sel), "Red", "red")
     display_alliance_section(get_alliance_table(blue_sel), "Blue", "blue")
 with tab1:

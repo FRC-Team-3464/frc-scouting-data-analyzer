@@ -1,9 +1,6 @@
 import json
-import os
-import sys
 from bokeh.io import output_file, save
 from bokeh.models import ColumnDataSource, DataTable, TableColumn, HTMLTemplateFormatter
-
 
 # Configuration
 COLUMN_ORDER = [
@@ -44,6 +41,7 @@ def processTeamAverages(filePath, teams=None):
     rootData = fetchedData.get("root", {})
 
     summaryData = {
+        "failureRate": [],
         "teamNumber": [],
         "entries": [],
         "avgAutoFuel": [],
@@ -54,6 +52,8 @@ def processTeamAverages(filePath, teams=None):
         "avgTotalFuel": [],
         "endgameAvgClimbPoints": [],
         "autoClimbPercent": [],
+        "multiTurret":[],
+        "static": []
     }
 
     for team in teamList:
@@ -61,7 +61,13 @@ def processTeamAverages(filePath, teams=None):
         matchCount = len(teamMatches)
 
         tempAutoClimb, tempAuto, tempTransition, tempFirstHub = 0, [], [], []
-        tempEndgameClimbPoints, tempSecondHub, tempEndgame, tempTotal = [], [], [], []
+        tempEndgameClimbPoints, tempSecondHub, tempEndgame, tempTotal, tempFailure = (
+            [],
+            [],
+            [],
+            [],
+            0,
+        )
 
         for matchId, matchData in teamMatches.items():
             auto = matchData.get("autoFuel", 0)
@@ -72,10 +78,13 @@ def processTeamAverages(filePath, teams=None):
             firstHub = matchData.get(f"shift{firstShift}Fuel", 0)
             secondHub = matchData.get(f"shift{secondShift}Fuel", 0)
             total = auto + transition + endgame + firstHub + secondHub
+            fail = matchData.get("failure", False)
 
             tempAutoClimb += 1 if matchData.get("autoClimbed") else 0
 
-            if matchData.get("endgameClimbLevel") != "Didn't climb" and matchData.get("endgameClimbLevel", "").startswith("Level "):
+            if matchData.get("endgameClimbLevel") != "Didn't climb" and matchData.get(
+                "endgameClimbLevel", ""
+            ).startswith("Level "):
                 print(matchData.get("endgameClimbLevel"), "")
                 tempEndgameClimbPoints.append(
                     (int(matchData.get("endgameClimbLevel", "")[5:]) * 5)
@@ -89,6 +98,7 @@ def processTeamAverages(filePath, teams=None):
             tempSecondHub.append(secondHub)
             tempEndgame.append(endgame)
             tempTotal.append(total)
+            tempFailure += 1 if fail else 0
 
         summaryData["teamNumber"].append(team)
         summaryData["entries"].append(matchCount)
@@ -101,6 +111,7 @@ def processTeamAverages(filePath, teams=None):
         summaryData["autoClimbPercent"].append(
             round((tempAutoClimb / matchCount) * 100, 2)
         )
+        summaryData["failureRate"].append(round((tempFailure / matchCount) * 100, 2))
         summaryData["endgameAvgClimbPoints"].append(
             calculateAverage(tempEndgameClimbPoints)
         )
