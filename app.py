@@ -1,7 +1,9 @@
+import time
+
 import streamlit as st
 import pandas as pd
-import time
 import json
+import time
 from PIL import Image
 from io import BytesIO
 import requests
@@ -10,13 +12,10 @@ from bluealliance import fetch as bFetch
 from fetchfromdb import fetch as ffetch
 from avgs import processTeamAverages
 from jsonToCsv import convertAvgsToCsv
-from st_image_button import st_image_button
 from teamPredictor import main as predict
 from stdTeamPredictor import predict as stdPred
 
-# required pip installs:
-# pip install streamlit pandas st_image_button requests
-# with python 3.13
+# Requires Python 3.14 and the packages in requirements.txt.
 
 # ffetch()
 bFetch("matches")
@@ -117,8 +116,8 @@ st.title("📊 Raw Scouting Data Viewer")
 dataPath = "jsons/fetchedData.json"
 allRows = loadAndFlattenData(dataPath)
 
-tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["individual", "data", "ranker", "matches", "STD predictor", "Game Predictor"]
+tab0, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    ["Individual", "Data", "Ranker", "Matches", "STD Predictor", "Game Predictor", "Cool Cards"]
 )
 df = pd.DataFrame(pd.read_csv("jsons/avgs.csv"))
 
@@ -197,24 +196,23 @@ with tab1:
 
         df = df[finalColumns]
 
-        with open("jsons/fetchedData.json", "r") as goy:
-            teamsList = [str(t) for t in json.load(goy).get("team", [])]
-
         st.sidebar.header("Filters")
 
         if "teamNumber" in df.columns:
             allTeams = sorted(df["teamNumber"].unique().astype(str))
-            if "selectedTeams" not in st.session_state:
-                st.session_state.selectedTeams = allTeams
+            st.session_state.teamSelector = [
+                team
+                for team in st.session_state.get("teamSelector", allTeams)
+                if team in allTeams
+            ]
 
             if st.sidebar.button("Select All Teams", key="selectAllBtn"):
-                st.session_state.selectedTeams = teamsList
+                st.session_state.teamSelector = allTeams
 
             selectedTeams = st.sidebar.multiselect(
                 "Filter by Team",
                 options=allTeams,
                 key="teamSelector",
-                default=st.session_state.selectedTeams,
             )
 
             df = df[df["teamNumber"].astype(str).isin(selectedTeams)]
@@ -238,8 +236,6 @@ with tab1:
             df["matchNumber"].nunique() if "matchNumber" in df.columns else 0,
         )
 
-        st.divider()
-        st.subheader("data")
 
         styledDf = df.copy()
         for col in numericGradientColumns:
@@ -247,18 +243,29 @@ with tab1:
                 styledDf[col] = styledDf[col].apply(
                     lambda x: f"{x}" if pd.notna(x) else ""
                 )
-
-        st.dataframe(
-            styledDf,
-            height=600,
-            column_config={
-                "notes": st.column_config.TextColumn(width=250),
-                "robotError": st.column_config.TextColumn(width=200),
-                "eventName": st.column_config.TextColumn(width=150),
-            },
+#new ui starts here
+    data_view = st.segmented_control(
+            "Data",
+            ["All", "Auto", "Transition", "Shifts", "Endgame", "Misc"],
+            selection_mode = "multi",
+            default = "All"
         )
-    else:
-        st.warning("No data to display. Please ensure jsons/fetchedData.json exists.")
+    display_cols = []
+    if"Auto" in data_view:
+        display_cols+=[ "autoFuel", "autoClimbed"]
+    if "Transition" in data_view:
+        display_cols+=[ "transitionFuel"]
+    if "Shifts" in data_view:
+        display_cols+=[ "shift1Fuel", "shift2Fuel",  "shift3Fuel", "shift4Fuel"]
+    if "Endgame" in data_view:
+        display_cols+=[ "endgameFuel", "endgameClimbLevel"]
+    if "Misc" in data_view:
+        display_cols+=[ "crossedBump", "underTrench", "robotError", "notes", "static"]
+
+    if display_cols and "All" not in data_view:
+        df= df[["teamNumber", "matchNumber", "name" ]+display_cols]
+    st.dataframe(df, use_container_width=True, hide_index=True)
+        
 
 with tab2:
     df = pd.read_csv("jsons/avgs.csv")
@@ -270,7 +277,7 @@ with tab2:
         df["Pickability"] = 0.0
 
     with c1:
-        if st_image_button("", "dog.jpeg", width=125, key="dogBtn"):
+        if st.button("Update Multipliers"):
             updateMultipliers(
                 st.session_state.get("multiplier1", 1.00),
                 st.session_state.get("multiplier2", 1.00),
@@ -374,129 +381,275 @@ with tab2:
     )
 
 with tab3:
-    teamsGroup = [
-        ["a", "b", "c", "d", "e", "f"],
-        ["g", "h", "i", "j", "k", "l"],
-        ["m", "n", "o", "p", "q", "r"],
+
+    mango = [  # 0 1 and 2 cannot contain a or c, 2 and 3 cannot contain C, 3 4 5 cannot contain D, 5 6 cannot contain a 6 0 cannot contain B
+        ["Kate Basun", "Agrawal", "Peter", "Nicol", "Jennings", "Caulfield"],  # 0
+        ["Harsh G", "Precourt", "Owen Biamonte", "Browne", "Rishav", "Dong"],  # 1
+        [
+            "Aiden Vargas",
+            "Lenarz",
+            "Kaelyn",
+            "Maxwell Dillion",
+            "Jennings",
+            "Tuthill",
+        ],  # 2
+        ["McGrath", "sam meng", "Senchukov", "Ding", "Kruger", "Ryan Hefferon"],  # 3
+        ["Sauer", "Maxwell Miller", "Ismoedi", "Chang", "Daniel Sardinha", "KH"],  # 4
+        ["Khan", "Senut W", "Aidan", "Ding", "Barcomb", "Conway"],  # 5
+        ["Delport", "Rahban", "Prausa", "Jason Zhang", "sam meng", "Ding"],  # 6
     ]
-    matchOrder = [0, 1, 2, 1, 2, 1, 0, 1, 2, 0, 1, 2, 1, 2, 0]
+    teamsGroup = [
+        # 0: Cannot contain A, B, or C
+        [
+            "Kate Basun",
+            "Sanjay Agrawal",
+            "Peter Matos",
+            "Dominic Nicol",
+            "Michael Jennings",
+            "Juliet Caulfield",
+        ],
+        # 1: Cannot contain A or C
+        [
+            "Harsh Gairola",
+            "Julien Precourt",
+            "Owen Biamonte",
+            "Aoibheann Browne",
+            "Rishav Mukherjee",
+            "Mason Dong",
+        ],
+        # 2: Cannot contain A or C
+        [
+            "Aiden Vargas",
+            "Hunter Lenarz",
+            "Kaelyn Norton",
+            "Maxwell Dillon",
+            "Christopher Jennings",
+            "Nathan Tuthill",
+        ],
+        # 3: Cannot contain C or D
+        [
+            "Matthew McGrath",
+            "Sam Meng",
+            "Daniel Senchukov",
+            "William Ding",
+            "Estiaan Kruger",
+            "Ryan Hefferon",
+        ],
+        # 4: Cannot contain D
+        [
+            "Benjamin Sauer",
+            "Maxwell Miller",
+            "Dama Ismoedi",
+            "Mac Chang",
+            "Daniel Sardinha",
+            "Kshitij Hegde",
+        ],
+        # 5: Cannot contain D or A
+        [
+            "Shayaan Khan",
+            'Senuth W ',
+            "Aidan Ahn",
+            "Wesley Barcomb",
+            "Zoe Conway",
+            "Daniel Senchukov",
+        ],
+        # 6: Cannot contain A or B
+        [
+            "Tiana Delport",
+            "Alex Rahban",
+            "Evan Prausa",
+            'Jason Zhang'
+,
+            "William Ding",
+            "Sam Meng",
+        ],
+    ]
 
-    def getStackedCell(items, colors=None):
-        htmlString = '<div style="display: flex; flex-direction: column; height: 100%; width: 100%; border: 1px solid #ccc; border-radius: 4px; overflow: hidden;">'
-        for i, item in enumerate(items):
-            bgColor = colors[i] if colors else "transparent"
-            borderStyle = "border-bottom: 1px solid #ccc;" if i < len(items) - 1 else ""
-            htmlString += f"""<div style="background-color: {bgColor}; flex: 1; padding: 4px; text-align: center; font-weight: bold; {borderStyle}">{item}</div>"""
-        htmlString += "</div>"
-        return htmlString
+    def stepper(len, reps, maxNum):
+        sequence = []
 
-    def mainSchedule():
-        st.title("Match Schedule & Scout Verification")
-        try:
-            with open("jsons/matches.json", "r") as f:
-                matchList = json.load(f)
-            matchList.sort(key=lambda x: x.get("match_number", 0))
-        except (FileNotFoundError, json.JSONDecodeError):
-            st.error("Error: Could not load jsons/matches.json.")
-            return
+        for i in range(len):
+            blockIndex = i // reps
+            currentNum = blockIndex % (maxNum + 1)
+            sequence.append(int(currentNum))
 
-        try:
-            with open("jsons/fetchedData.json", "r") as f:
-                scoutingData = json.load(f).get("root", {})
-        except (FileNotFoundError, json.JSONDecodeError):
-            scoutingData = {}
+        return sequence
 
-        st.divider()
-        h1, h2, h3, h4 = st.columns([1, 2, 2, 2])
-        h1.write("**Match / Score**")
-        h2.write("**Teams (Red/Blue)**")
-        h3.write("**Assigned Scouters**")
-        h4.write("**Scout Check (Status)**")
-        st.divider()
+    st.title("Qual Matches")
+    try:
+        with open("jsons/matches.json", "r") as f:
+            matchList = json.load(f)
+        matchList.sort(key=lambda x: x.get("match_number", 0))
+    except (FileNotFoundError, json.JSONDecodeError):
+        st.error("Error: Could not load jsons/matches.json.")
 
-        for idx, match in enumerate(matchList):
-            if (not isinstance(match, dict)) or not match.get(
-                "comp_level", "qm"
-            ) == "qm":
-                continue
+    matchOrder = [
+        0,  # est 10:50
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,  # est 12:00 match 9 id 8
+        1,
+        2,
+        2,
+        2,
+        2,  # est 14:00 match 14 id 13
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,  # est 15:00 match 20 id 19
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        5,  # est 16:00 match 27 id 26
+        5,
+        5,
+        5,
+        6,
+        6,
+        6,  # est 17:00 match 33 id 32
+        6,
+        6,
+        0,
+        0,
+        0,
+        0,
+        0,  # est 18:00 match 40 id 39
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        2,  # est 19:00 match 47 id 46
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+    ]
+    try:
+        with open("jsons/fetchedData.json", "r") as f:
+            scoutingData = json.load(f).get("root", {})
+    except (FileNotFoundError, json.JSONDecodeError):
+        scoutingData = {}
+        print("nothing")
 
-            matchNum = match.get("match_number", idx + 1)
-            matchStr = str(matchNum)
-            compLevel = match.get("comp_level", "qm").upper()
-            alliances = match.get("alliances", {})
+    for match, matches in enumerate(matchList):
+        if not matches.get("comp_level", "dih") == "qm":
+            print("pass")
+            continue
 
-            redScore = alliances.get("red", {}).get("score", 0)
-            blueScore = alliances.get("blue", {}).get("score", 0)
+        matchNum = matches.get("match_number", match + 1)
 
-            redKeys = [
-                t.replace("frc", "")
-                for t in alliances.get("red", {}).get("team_keys", [])
-            ]
-            blueKeys = [
-                t.replace("frc", "")
-                for t in alliances.get("blue", {}).get("team_keys", [])
-            ]
-            displayTeams = redKeys + blueKeys
+        estTime = matches.get("predicted_time") or 0
+        estOffset = -4 * 3600
 
-            if len(displayTeams) < 6:
-                continue
+        estEpoch = estTime + estOffset
 
-            allianceColors = ["#8B0000"] * 3 + ["#00008B"] * 3
-            assignedScouters = teamsGroup[matchOrder[idx % len(matchOrder)]]
+        estStruct = time.gmtime(estEpoch)
 
-            checkLabels, checkColors = [], []
-            for i in range(6):
-                teamNum = displayTeams[i]
-                assignedName = assignedScouters[i]
-                actualScouterName = (
-                    scoutingData.get(teamNum, {}).get(matchStr, {}).get("name", "")
-                )
+        estTime = time.strftime('%H:%M', estStruct)
+        actualTime = matches.get("actual_time", None)
 
-                if actualScouterName.lower() == assignedName.lower():
-                    checkLabels.append(f"Verified: {actualScouterName}")
-                    checkColors.append("#00ff1e")
-                elif actualScouterName != "":
-                    checkLabels.append(f"Scouter: {actualScouterName}")
-                    checkColors.append("#636300")
+        compLevel = matches.get("comp_level", "qm").upper()
+        alliances = matches.get("alliances", {})
+
+        redScore = alliances.get("red", {}).get("score", 0)
+        blueScore = alliances.get("blue", {}).get("score", 0)
+
+        redKeys = [
+            team.replace("frc", "")
+            for team in alliances.get("red", {}).get("team_keys", [])
+        ]
+        blueKeys = [
+            team.replace("frc", "")
+            for team in alliances.get("blue", {}).get("team_keys", [])
+        ]
+
+        allTeams = redKeys + blueKeys
+
+        if len(allTeams) < 6:
+            continue
+
+        # put emojis cuz im not dealing with chud html
+        with st.container(border=True):
+            st.markdown(f"Estimated: {estTime}")
+            if actualTime != None:
+                if actualTime < time.time():
+                    st.markdown("MATCH PASSED")
                 else:
-                    checkLabels.append(f"Missing: {assignedName}")
-                    checkColors.append("#8B0000")
+                    st.markdown("MATCH UPCOMING")
+            else:
+                st.markdown("MATCH UPCOMING")
 
-            r1, r2, r3, r4 = st.columns([1, 2, 2, 2])
-            with r1:
-                st.markdown(f"### {compLevel} {matchNum}")
-                st.markdown(f"**Red: {redScore}**")
-                st.markdown(f"**Blue: {blueScore}**")
-            with r2:
-                st.markdown(
-                    getStackedCell(displayTeams, allianceColors), unsafe_allow_html=True
-                )
-            with r3:
-                st.markdown(getStackedCell(assignedScouters), unsafe_allow_html=True)
-            with r4:
-                st.markdown(
-                    getStackedCell(checkLabels, checkColors), unsafe_allow_html=True
-                )
-            st.divider()
+            col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
 
-    mainSchedule()
+            st.markdown(f"Match : #{matchNum} 🟥{redScore } 🟦 {blueScore}")
+            st.markdown("TEAM")
+
+            for i in [3, 4, 5, 0, 1, 2]:
+                selectedTeam = allTeams[i]
+
+                scouter = (
+                    scoutingData.get(selectedTeam, {})
+                    .get(str(matchNum), {})
+                    .get("name", "")
+                )
+                if i < 3:
+                    allianceColor = "🟥"
+                else:
+                    allianceColor = "🟦"
+                scouterfont = teamsGroup[matchOrder[(matchNum - 1) % len(matchOrder)]][i]
+                isScouted = "✅" if scouter != "" else "❌"
+                st.markdown(f"{allianceColor} {selectedTeam} — {isScouted} {scouterfont}", unsafe_allow_html=True)
+
 
 with tab4:
+    availableStdTeams = sorted(
+        {
+            int(row["teamNumber"])
+            for row in allRows
+            if row.get("teamNumber") not in (None, "")
+        }
+    )
+    stdTeamOptions = [None, *availableStdTeams]
     colA, colB, colC = st.columns(3)
     with colA:
         with st.form(key="stdPredictForm"):
             coll0, coll1 = st.columns(2)
             with coll0:
                 st.markdown("### red")
-                st.number_input("r1", key="srTeam1", value=0)
-                st.number_input("r2", key="srTeam2", value=0)
-                st.number_input("r3", key="srTeam3", value=0)
+                st.selectbox("r1", stdTeamOptions, key="stdRedTeam1")
+                st.selectbox("r2", stdTeamOptions, key="stdRedTeam2")
+                st.selectbox("r3", stdTeamOptions, key="stdRedTeam3")
             with coll1:
                 st.markdown("### blue")
-                st.number_input("b1", key="sbTeam1", value=0)
-                st.number_input("b2", key="sbTeam2", value=0)
-                st.number_input("b3", key="sbTeam3", value=0)
-            st.form_submit_button("STD Predict")
+                st.selectbox("b1", stdTeamOptions, key="stdBlueTeam1")
+                st.selectbox("b2", stdTeamOptions, key="stdBlueTeam2")
+                st.selectbox("b3", stdTeamOptions, key="stdBlueTeam3")
+            stdPredictSubmit = st.form_submit_button("STD Predict")
 
     with colB:
         st.markdown("robots ranked in order")
@@ -504,41 +657,68 @@ with tab4:
         st.dataframe(data=dictRank, height=500, key="rankDataframe")
 
     with colC:
-        stdPred(
-            [
-                st.session_state.get("srTeam1"),
-                st.session_state.get("srTeam2"),
-                st.session_state.get("srTeam3"),
-            ],
-            [
-                st.session_state.get("sbTeam1"),
-                st.session_state.get("sbTeam2"),
-                st.session_state.get("sbTeam3"),
-            ],
-        )
-        time.sleep(1)
-        with open("jsons/stdTeamPredictor.json", "r") as goy:
-            stds = json.load(goy)
-        st.markdown(f"## Standard Deviation Predictor")
-        st.markdown(f"### {stds.get('output_cell', '')}")
+        st.markdown("## Standard Deviation Predictor")
+
+        if stdPredictSubmit:
+            redTeams = [
+                st.session_state.get("stdRedTeam1"),
+                st.session_state.get("stdRedTeam2"),
+                st.session_state.get("stdRedTeam3"),
+            ]
+            blueTeams = [
+                st.session_state.get("stdBlueTeam1"),
+                st.session_state.get("stdBlueTeam2"),
+                st.session_state.get("stdBlueTeam3"),
+            ]
+
+            if any(team is None for team in redTeams + blueTeams):
+                st.session_state.stdPrediction = None
+                st.session_state.stdPredictionError = (
+                    "Select all three red and all three blue teams."
+                )
+            elif len(set(redTeams + blueTeams)) < 6:
+                st.session_state.stdPrediction = None
+                st.session_state.stdPredictionError = (
+                    "Select six different teams for the prediction."
+                )
+            else:
+                st.session_state.stdPrediction = stdPred(redTeams, blueTeams)
+                st.session_state.stdPredictionTeams = {
+                    "red": redTeams,
+                    "blue": blueTeams,
+                }
+                st.session_state.stdPredictionError = None
+
+        if st.session_state.get("stdPredictionError"):
+            st.error(st.session_state.stdPredictionError)
+        elif stds := st.session_state.get("stdPrediction"):
+            predictionTeams = st.session_state.stdPredictionTeams
+            st.caption(
+                f"Red: {predictionTeams['red']} | Blue: {predictionTeams['blue']}"
+            )
+            st.markdown(f"### {stds['output_cell']}")
+            calculationData = stds["calculation_data"]
+            st.write(f"Red range: {calculationData['red_range']}")
+            st.write(f"Blue range: {calculationData['blue_range']}")
+        else:
+            st.info("Select six teams and select STD Predict.")
 
 with tab5:
     colL, colM, colN, colO = st.columns(4)
-    rMin, rAvg, rMax, bMin, bAvg, bMax, rWin, bWin = 0, 0, 0, 0, 0, 0, 0, 0
 
     with colL:
         with st.form(key="predictForm"):
             cl0, cl1 = st.columns(2)
             with cl0:
                 st.markdown("### red")
-                st.number_input("r1", key="rTeam1", value=0)
-                st.number_input("r2", key="rTeam2", value=0)
-                st.number_input("r3", key="rTeam3", value=0)
+                st.selectbox("r1", stdTeamOptions, key="gameRedTeam1")
+                st.selectbox("r2", stdTeamOptions, key="gameRedTeam2")
+                st.selectbox("r3", stdTeamOptions, key="gameRedTeam3")
             with cl1:
                 st.markdown("### blue")
-                st.number_input("b1", key="bTeam1", value=0)
-                st.number_input("b2", key="bTeam2", value=0)
-                st.number_input("b3", key="bTeam3", value=0)
+                st.selectbox("b1", stdTeamOptions, key="gameBlueTeam1")
+                st.selectbox("b2", stdTeamOptions, key="gameBlueTeam2")
+                st.selectbox("b3", stdTeamOptions, key="gameBlueTeam3")
             predictSubmit = st.form_submit_button("Predict")
 
     with colM:
@@ -548,46 +728,85 @@ with tab5:
 
     with colN:
         if predictSubmit:
-            if st.session_state.get("rTeam1", 0) != 0:
-                predict(
-                    [
-                        st.session_state.get("rTeam1"),
-                        st.session_state.get("rTeam2"),
-                        st.session_state.get("rTeam3"),
-                    ],
-                    [
-                        st.session_state.get("bTeam1"),
-                        st.session_state.get("bTeam2"),
-                        st.session_state.get("bTeam3"),
-                    ],
+            redTeams = [
+                st.session_state.get("gameRedTeam1"),
+                st.session_state.get("gameRedTeam2"),
+                st.session_state.get("gameRedTeam3"),
+            ]
+            blueTeams = [
+                st.session_state.get("gameBlueTeam1"),
+                st.session_state.get("gameBlueTeam2"),
+                st.session_state.get("gameBlueTeam3"),
+            ]
+
+            if any(team is None for team in redTeams + blueTeams):
+                st.session_state.gamePrediction = None
+                st.session_state.gamePredictionError = (
+                    "Select all three red and all three blue teams."
                 )
-                time.sleep(3)
-                with open("jsons/teamPredictor.json", "r") as goy:
-                    preds = json.load(goy)
+            elif len(set(redTeams + blueTeams)) < 6:
+                st.session_state.gamePrediction = None
+                st.session_state.gamePredictionError = (
+                    "Select six different teams for the prediction."
+                )
+            else:
+                st.session_state.gamePrediction = predict(redTeams, blueTeams)
+                st.session_state.gamePredictionError = None
 
-                reds = preds.get("Red_Alliance", {})
-                blues = preds.get("Blue_Alliance", {})
-
-                rMin = reds.get("Score_Prediction", {}).get("min", 0)
-                rAvg = reds.get("Score_Prediction", {}).get("likely", 0)
-                rMax = reds.get("Score_Prediction", {}).get("max", 0)
-
-                bMin = blues.get("Score_Prediction", {}).get("min", 0)
-                bAvg = blues.get("Score_Prediction", {}).get("likely", 0)
-                bMax = blues.get("Score_Prediction", {}).get("max", 0)
-
-                rWin = reds.get("Win_Chance", 0)
-                bWin = blues.get("Win_Chance", 0)
+        if st.session_state.get("gamePredictionError"):
+            st.error(st.session_state.gamePredictionError)
+        elif st.session_state.get("gamePrediction") is None:
+            st.info("Select six teams and select Predict.")
 
     with colO:
-        st.markdown(f"## RED")
-        st.markdown(f"Min: {rMin}")
-        st.markdown(f"Likely: {rAvg}")
-        st.markdown(f"Max: {rMax}")
-        st.markdown(f"Win chance: {rWin}")
+        if preds := st.session_state.get("gamePrediction"):
+            reds = preds["Red_Alliance"]
+            blues = preds["Blue_Alliance"]
+            redScores = reds["Score_Prediction"]
+            blueScores = blues["Score_Prediction"]
 
-        st.markdown(f"## BLUE")
-        st.markdown(f"Min: {bMin}")
-        st.markdown(f"Likely: {bAvg}")
-        st.markdown(f"Max: {bMax}")
-        st.markdown(f"Win chance: {bWin}")
+            st.caption(f"Red: {reds['Teams']} | Blue: {blues['Teams']}")
+            st.markdown("## RED")
+            st.markdown(f"Min: {redScores['min']}")
+            st.markdown(f"Likely: {redScores['likely']}")
+            st.markdown(f"Max: {redScores['max']}")
+            st.markdown(f"Win chance: {reds['Win_Chance']}")
+
+            st.markdown("## BLUE")
+            st.markdown(f"Min: {blueScores['min']}")
+            st.markdown(f"Likely: {blueScores['likely']}")
+            st.markdown(f"Max: {blueScores['max']}")
+            st.markdown(f"Win chance: {blues['Win_Chance']}")
+with tab6:
+    df = pd.read_csv("jsons/avgs.csv").sort_values("avgTotalFuel", ascending=False)
+    with st.popover("weights"):
+        weightAuto = st.slider("Auto", 0.0, 3.0, 1.0)
+        weightTrans = st.slider("Trans", 0.0, 3.0, 1.0)
+        weightShift = st.slider("Shift", 0.0, 3.0, 1.0)
+        weightEnd = st.slider("End", 0.0, 3.0, 1.0)
+    df["Pickability"] = (
+        weightAuto * df["avgAutoFuel"]
+        + weightTrans * df["avgTransitionFuel"]
+        + weightShift * (df["avgTotalFuel"] - df["avgAutoFuel"] - df["avgTransitionFuel"] - df["avgEndgameFuel"])/4
+        + weightEnd * df["avgEndgameFuel"]
+    )
+    df=df.sort_values("Pickability", ascending=False)
+    team_data = df.to_dict(orient="records")
+
+    for i in range(0, len(df), 2): #2 is max per row and adjust if neded
+        team_row = team_data[i:i+2]
+        columns = st.columns(2)
+
+        for n in range(len(team_row)):
+            team = team_row[n]
+            with columns[n]:
+                with st.container(border= True):
+                    st.subheader(f"Team {team['teamNumber']}")
+                    st.metric("Avg Fuel", round(team["avgTotalFuel"], 1))
+                    st.metric("Avg Auto", round(team["avgAutoFuel"], 1))
+                    st.metric("Avg Transition", round(team["avgTransitionFuel"], 1))
+                    st.metric("AvgShifts", round(team["avgTotalFuel"]-team["avgAutoFuel"]-team["avgTransitionFuel"]-team["avgEndgameFuel"], 1))
+                    st.metric("Avg Endgame", round(team["avgEndgameFuel"], 1))
+                    st.metric("Pickability", round(team["Pickability"], 1))
+
+
