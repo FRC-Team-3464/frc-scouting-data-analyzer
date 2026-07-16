@@ -1,6 +1,9 @@
+import time
+
 import streamlit as st
 import pandas as pd
 import json
+import time
 from PIL import Image
 from io import BytesIO
 import requests
@@ -9,7 +12,6 @@ from bluealliance import fetch as bFetch
 from fetchfromdb import fetch as ffetch
 from avgs import processTeamAverages
 from jsonToCsv import convertAvgsToCsv
-from st_image_button import st_image_button
 from teamPredictor import main as predict
 from stdTeamPredictor import predict as stdPred
 
@@ -234,8 +236,6 @@ with tab1:
             df["matchNumber"].nunique() if "matchNumber" in df.columns else 0,
         )
 
-        st.divider()
-        st.subheader("data")
 
         styledDf = df.copy()
         for col in numericGradientColumns:
@@ -243,18 +243,29 @@ with tab1:
                 styledDf[col] = styledDf[col].apply(
                     lambda x: f"{x}" if pd.notna(x) else ""
                 )
-
-        st.dataframe(
-            styledDf,
-            height=600,
-            column_config={
-                "notes": st.column_config.TextColumn(width=250),
-                "robotError": st.column_config.TextColumn(width=200),
-                "eventName": st.column_config.TextColumn(width=150),
-            },
+#new ui starts here
+    data_view = st.segmented_control(
+            "Data",
+            ["All", "Auto", "Transition", "Shifts", "Endgame", "Misc"],
+            selection_mode = "multi",
+            default = "All"
         )
-    else:
-        st.warning("No data to display. Please ensure jsons/fetchedData.json exists.")
+    display_cols = []
+    if"Auto" in data_view:
+        display_cols+=[ "autoFuel", "autoClimbed"]
+    if "Transition" in data_view:
+        display_cols+=[ "transitionFuel"]
+    if "Shifts" in data_view:
+        display_cols+=[ "shift1Fuel", "shift2Fuel",  "shift3Fuel", "shift4Fuel"]
+    if "Endgame" in data_view:
+        display_cols+=[ "endgameFuel", "endgameClimbLevel"]
+    if "Misc" in data_view:
+        display_cols+=[ "crossedBump", "underTrench", "robotError", "notes", "static"]
+
+    if display_cols and "All" not in data_view:
+        df= df[["teamNumber", "matchNumber", "name" ]+display_cols]
+    st.dataframe(df, use_container_width=True, hide_index=True)
+        
 
 with tab2:
     df = pd.read_csv("jsons/avgs.csv")
@@ -266,7 +277,7 @@ with tab2:
         df["Pickability"] = 0.0
 
     with c1:
-        if st_image_button("", "dog.jpeg", width=125, key="dogBtn"):
+        if st.button("Update Multipliers"):
             updateMultipliers(
                 st.session_state.get("multiplier1", 1.00),
                 st.session_state.get("multiplier2", 1.00),
@@ -370,112 +381,250 @@ with tab2:
     )
 
 with tab3:
-    teamsGroup = [
-        ["a", "b", "c", "d", "e", "f"],
-        ["g", "h", "i", "j", "k", "l"],
-        ["m", "n", "o", "p", "q", "r"],
+
+    mango = [  # 0 1 and 2 cannot contain a or c, 2 and 3 cannot contain C, 3 4 5 cannot contain D, 5 6 cannot contain a 6 0 cannot contain B
+        ["Kate Basun", "Agrawal", "Peter", "Nicol", "Jennings", "Caulfield"],  # 0
+        ["Harsh G", "Precourt", "Owen Biamonte", "Browne", "Rishav", "Dong"],  # 1
+        [
+            "Aiden Vargas",
+            "Lenarz",
+            "Kaelyn",
+            "Maxwell Dillion",
+            "Jennings",
+            "Tuthill",
+        ],  # 2
+        ["McGrath", "sam meng", "Senchukov", "Ding", "Kruger", "Ryan Hefferon"],  # 3
+        ["Sauer", "Maxwell Miller", "Ismoedi", "Chang", "Daniel Sardinha", "KH"],  # 4
+        ["Khan", "Senut W", "Aidan", "Ding", "Barcomb", "Conway"],  # 5
+        ["Delport", "Rahban", "Prausa", "Jason Zhang", "sam meng", "Ding"],  # 6
     ]
-    matchOrder = [0, 1, 2, 1, 2, 1, 0, 1, 2, 0, 1, 2, 1, 2, 0]
+    teamsGroup = [
+        # 0: Cannot contain A, B, or C
+        [
+            "Kate Basun",
+            "Sanjay Agrawal",
+            "Peter Matos",
+            "Dominic Nicol",
+            "Michael Jennings",
+            "Juliet Caulfield",
+        ],
+        # 1: Cannot contain A or C
+        [
+            "Harsh Gairola",
+            "Julien Precourt",
+            "Owen Biamonte",
+            "Aoibheann Browne",
+            "Rishav Mukherjee",
+            "Mason Dong",
+        ],
+        # 2: Cannot contain A or C
+        [
+            "Aiden Vargas",
+            "Hunter Lenarz",
+            "Kaelyn Norton",
+            "Maxwell Dillon",
+            "Christopher Jennings",
+            "Nathan Tuthill",
+        ],
+        # 3: Cannot contain C or D
+        [
+            "Matthew McGrath",
+            "Sam Meng",
+            "Daniel Senchukov",
+            "William Ding",
+            "Estiaan Kruger",
+            "Ryan Hefferon",
+        ],
+        # 4: Cannot contain D
+        [
+            "Benjamin Sauer",
+            "Maxwell Miller",
+            "Dama Ismoedi",
+            "Mac Chang",
+            "Daniel Sardinha",
+            "Kshitij Hegde",
+        ],
+        # 5: Cannot contain D or A
+        [
+            "Shayaan Khan",
+            'Senuth W ',
+            "Aidan Ahn",
+            "Wesley Barcomb",
+            "Zoe Conway",
+            "Daniel Senchukov",
+        ],
+        # 6: Cannot contain A or B
+        [
+            "Tiana Delport",
+            "Alex Rahban",
+            "Evan Prausa",
+            'Jason Zhang'
+,
+            "William Ding",
+            "Sam Meng",
+        ],
+    ]
 
-    def getStackedCell(items, colors=None):
-        htmlString = '<div style="display: flex; flex-direction: column; height: 100%; width: 100%; border: 1px solid #ccc; border-radius: 4px; overflow: hidden;">'
-        for i, item in enumerate(items):
-            bgColor = colors[i] if colors else "transparent"
-            borderStyle = "border-bottom: 1px solid #ccc;" if i < len(items) - 1 else ""
-            htmlString += f"""<div style="background-color: {bgColor}; flex: 1; padding: 4px; text-align: center; font-weight: bold; {borderStyle}">{item}</div>"""
-        htmlString += "</div>"
-        return htmlString
+    def stepper(len, reps, maxNum):
+        sequence = []
 
-    def mainSchedule():
-        st.title("Match Schedule & Scout Verification")
-        try:
-            with open("jsons/matches.json", "r") as f:
-                matchList = json.load(f)
-            matchList.sort(key=lambda x: x.get("match_number", 0))
-        except (FileNotFoundError, json.JSONDecodeError):
-            st.error("Error: Could not load jsons/matches.json.")
-            return
+        for i in range(len):
+            blockIndex = i // reps
+            currentNum = blockIndex % (maxNum + 1)
+            sequence.append(int(currentNum))
 
-        try:
-            with open("jsons/fetchedData.json", "r") as f:
-                scoutingData = json.load(f).get("root", {})
-        except (FileNotFoundError, json.JSONDecodeError):
-            scoutingData = {}
+        return sequence
 
-        st.divider()
-        h1, h2, h3, h4 = st.columns([1, 2, 2, 2])
-        h1.write("**Match / Score**")
-        h2.write("**Teams (Red/Blue)**")
-        h3.write("**Assigned Scouters**")
-        h4.write("**Scout Check (Status)**")
-        st.divider()
+    st.title("Qual Matches")
+    try:
+        with open("jsons/matches.json", "r") as f:
+            matchList = json.load(f)
+        matchList.sort(key=lambda x: x.get("match_number", 0))
+    except (FileNotFoundError, json.JSONDecodeError):
+        st.error("Error: Could not load jsons/matches.json.")
 
-        for idx, match in enumerate(matchList):
-            if (not isinstance(match, dict)) or not match.get(
-                "comp_level", "qm"
-            ) == "qm":
-                continue
+    matchOrder = [
+        0,  # est 10:50
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,  # est 12:00 match 9 id 8
+        1,
+        2,
+        2,
+        2,
+        2,  # est 14:00 match 14 id 13
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,  # est 15:00 match 20 id 19
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        5,  # est 16:00 match 27 id 26
+        5,
+        5,
+        5,
+        6,
+        6,
+        6,  # est 17:00 match 33 id 32
+        6,
+        6,
+        0,
+        0,
+        0,
+        0,
+        0,  # est 18:00 match 40 id 39
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        2,  # est 19:00 match 47 id 46
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+    ]
+    try:
+        with open("jsons/fetchedData.json", "r") as f:
+            scoutingData = json.load(f).get("root", {})
+    except (FileNotFoundError, json.JSONDecodeError):
+        scoutingData = {}
+        print("nothing")
 
-            matchNum = match.get("match_number", idx + 1)
-            matchStr = str(matchNum)
-            compLevel = match.get("comp_level", "qm").upper()
-            alliances = match.get("alliances", {})
+    for match, matches in enumerate(matchList):
+        if not matches.get("comp_level", "dih") == "qm":
+            print("pass")
+            continue
 
-            redScore = alliances.get("red", {}).get("score", 0)
-            blueScore = alliances.get("blue", {}).get("score", 0)
+        matchNum = matches.get("match_number", match + 1)
 
-            redKeys = [
-                t.replace("frc", "")
-                for t in alliances.get("red", {}).get("team_keys", [])
-            ]
-            blueKeys = [
-                t.replace("frc", "")
-                for t in alliances.get("blue", {}).get("team_keys", [])
-            ]
-            displayTeams = redKeys + blueKeys
+        estTime = matches.get("predicted_time") or 0
+        estOffset = -4 * 3600
 
-            if len(displayTeams) < 6:
-                continue
+        estEpoch = estTime + estOffset
 
-            allianceColors = ["#8B0000"] * 3 + ["#00008B"] * 3
-            assignedScouters = teamsGroup[matchOrder[idx % len(matchOrder)]]
+        estStruct = time.gmtime(estEpoch)
 
-            checkLabels, checkColors = [], []
-            for i in range(6):
-                teamNum = displayTeams[i]
-                assignedName = assignedScouters[i]
-                actualScouterName = (
-                    scoutingData.get(teamNum, {}).get(matchStr, {}).get("name", "")
-                )
+        estTime = time.strftime('%H:%M', estStruct)
+        actualTime = matches.get("actual_time", None)
 
-                if actualScouterName.lower() == assignedName.lower():
-                    checkLabels.append(f"Verified: {actualScouterName}")
-                    checkColors.append("#00ff1e")
-                elif actualScouterName != "":
-                    checkLabels.append(f"Scouter: {actualScouterName}")
-                    checkColors.append("#636300")
+        compLevel = matches.get("comp_level", "qm").upper()
+        alliances = matches.get("alliances", {})
+
+        redScore = alliances.get("red", {}).get("score", 0)
+        blueScore = alliances.get("blue", {}).get("score", 0)
+
+        redKeys = [
+            team.replace("frc", "")
+            for team in alliances.get("red", {}).get("team_keys", [])
+        ]
+        blueKeys = [
+            team.replace("frc", "")
+            for team in alliances.get("blue", {}).get("team_keys", [])
+        ]
+
+        allTeams = redKeys + blueKeys
+
+        if len(allTeams) < 6:
+            continue
+
+        # put emojis cuz im not dealing with chud html
+        with st.container(border=True):
+            st.markdown(f"Estimated: {estTime}")
+            if actualTime != None:
+                if actualTime < time.time():
+                    st.markdown("MATCH PASSED")
                 else:
-                    checkLabels.append(f"Missing: {assignedName}")
-                    checkColors.append("#8B0000")
+                    st.markdown("MATCH UPCOMING")
+            else:
+                st.markdown("MATCH UPCOMING")
 
-            r1, r2, r3, r4 = st.columns([1, 2, 2, 2])
-            with r1:
-                st.markdown(f"### {compLevel} {matchNum}")
-                st.markdown(f"**Red: {redScore}**")
-                st.markdown(f"**Blue: {blueScore}**")
-            with r2:
-                st.markdown(
-                    getStackedCell(displayTeams, allianceColors), unsafe_allow_html=True
-                )
-            with r3:
-                st.markdown(getStackedCell(assignedScouters), unsafe_allow_html=True)
-            with r4:
-                st.markdown(
-                    getStackedCell(checkLabels, checkColors), unsafe_allow_html=True
-                )
-            st.divider()
+            col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
 
-    mainSchedule()
+            st.markdown(f"Match : #{matchNum} 🟥{redScore } 🟦 {blueScore}")
+            st.markdown("TEAM")
+
+            for i in [3, 4, 5, 0, 1, 2]:
+                selectedTeam = allTeams[i]
+
+                scouter = (
+                    scoutingData.get(selectedTeam, {})
+                    .get(str(matchNum), {})
+                    .get("name", "")
+                )
+                if i < 3:
+                    allianceColor = "🟥"
+                else:
+                    allianceColor = "🟦"
+                scouterfont = teamsGroup[matchOrder[(matchNum - 1) % len(matchOrder)]][i]
+                isScouted = "✅" if scouter != "" else "❌"
+                st.markdown(f"{allianceColor} {selectedTeam} — {isScouted} {scouterfont}", unsafe_allow_html=True)
+
 
 with tab4:
     availableStdTeams = sorted(
