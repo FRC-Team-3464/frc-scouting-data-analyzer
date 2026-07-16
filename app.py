@@ -779,6 +779,18 @@ with tab5:
             st.markdown(f"Win chance: {blues['Win_Chance']}")
 with tab6:
     df = pd.read_csv("jsons/avgs.csv").sort_values("avgTotalFuel", ascending=False)
+    with st.popover("weights"):
+        weightAuto = st.slider("Auto", 0.0, 3.0, 1.0)
+        weightTrans = st.slider("Trans", 0.0, 3.0, 1.0)
+        weightShift = st.slider("Shift", 0.0, 3.0, 1.0)
+        weightEnd = st.slider("End", 0.0, 3.0, 1.0)
+    df["Pickability"] = (
+        weightAuto * df["avgAutoFuel"]
+        + weightTrans * df["avgTransitionFuel"]
+        + weightShift * (df["avgTotalFuel"] - df["avgAutoFuel"] - df["avgTransitionFuel"] - df["avgEndgameFuel"])/4
+        + weightEnd * df["avgEndgameFuel"]
+    )
+    df=df.sort_values("Pickability", ascending=False)
     team_data = df.to_dict(orient="records")
 
     for i in range(0, len(df), 2): #2 is max per row and adjust if neded
@@ -795,3 +807,6 @@ with tab6:
                     st.metric("Avg Transition", round(team["avgTransitionFuel"], 1))
                     st.metric("AvgShifts", round(team["avgTotalFuel"]-team["avgAutoFuel"]-team["avgTransitionFuel"]-team["avgEndgameFuel"], 1))
                     st.metric("Avg Endgame", round(team["avgEndgameFuel"], 1))
+                    st.metric("Pickability", round(team["Pickability"], 1))
+
+
