@@ -116,8 +116,8 @@ st.title("📊 Raw Scouting Data Viewer")
 dataPath = "jsons/fetchedData.json"
 allRows = loadAndFlattenData(dataPath)
 
-tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["Individual", "Data", "Ranker", "Matches", "STD Predictor", "Game Predictor"]
+tab0, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    ["Individual", "Data", "Ranker", "Matches", "STD Predictor", "Game Predictor", "Cool Cards"]
 )
 df = pd.DataFrame(pd.read_csv("jsons/avgs.csv"))
 
@@ -777,3 +777,21 @@ with tab5:
             st.markdown(f"Likely: {blueScores['likely']}")
             st.markdown(f"Max: {blueScores['max']}")
             st.markdown(f"Win chance: {blues['Win_Chance']}")
+with tab6:
+    df = pd.read_csv("jsons/avgs.csv").sort_values("avgTotalFuel", ascending=False)
+    team_data = df.to_dict(orient="records")
+
+    for i in range(0, len(df), 2): #2 is max per row and adjust if neded
+        team_row = team_data[i:i+2]
+        columns = st.columns(2)
+
+        for n in range(len(team_row)):
+            team = team_row[n]
+            with columns[n]:
+                with st.container(border= True):
+                    st.subheader(f"Team {team['teamNumber']}")
+                    st.metric("Avg Fuel", round(team["avgTotalFuel"], 1))
+                    st.metric("Avg Auto", round(team["avgAutoFuel"], 1))
+                    st.metric("Avg Transition", round(team["avgTransitionFuel"], 1))
+                    st.metric("AvgShifts", round(team["avgTotalFuel"]-team["avgAutoFuel"]-team["avgTransitionFuel"]-team["avgEndgameFuel"], 1))
+                    st.metric("Avg Endgame", round(team["avgEndgameFuel"], 1))
