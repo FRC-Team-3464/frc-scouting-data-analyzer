@@ -110,9 +110,11 @@ def processTeamAverages(filePath, teams=None):
         summaryData["avgEndgameFuel"].append(calculateAverage(tempEndgame))
         summaryData["avgTotalFuel"].append(calculateAverage(tempTotal))
         summaryData["autoClimbPercent"].append(
-            round((tempAutoClimb / matchCount) * 100, 2)
+            round((tempAutoClimb / matchCount) * 100, 2) if matchCount else 0
         )
-        summaryData["failureRate"].append(round((tempFailure / matchCount) * 100, 2))
+        summaryData["failureRate"].append(
+            round((tempFailure / matchCount) * 100, 2) if matchCount else 0
+        )
         summaryData["endgameAvgClimbPoints"].append(
             calculateAverage(tempEndgameClimbPoints)
         )

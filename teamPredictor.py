@@ -210,7 +210,6 @@ def teleopCalc(allTeams, autoWinner, defenseFactored=False):
         }
 
     profiles = [getProfile(t) for t in allTeams]
-    print(profiles)
     redProfs = profiles[0:3]
     blueProfs = profiles[3:6]
 
@@ -293,8 +292,7 @@ def teleopCalc(allTeams, autoWinner, defenseFactored=False):
 
 def main(redAlliance, blueAlliance):
     with open("jsons/fetchedData.json", "r") as inFile:
-        rawJsonString = inFile.read()
-    jsonData = json.loads(rawJsonString)
+        jsonData = json.load(inFile)
 
     allTeamsList = []
     for tNum in redAlliance + blueAlliance:
@@ -338,11 +336,11 @@ def main(redAlliance, blueAlliance):
         },
     }
 
-    with open("jsons/teamPredictor.json", "w") as outFile:
-        json.dump(output, outFile, indent=4)
+    return output
 
 
 if __name__ == "__main__":
     start = time.time()
-    main([5962, 5962, 6328], [501, 5813, 811])
+    result = main([5962, 5962, 6328], [501, 5813, 811])
+    print(json.dumps(result, indent=4))
     print(f"Prediction completed in {time.time() - start:.2f} seconds.")

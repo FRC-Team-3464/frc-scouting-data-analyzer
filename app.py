@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import time
 import json
 from PIL import Image
 from io import BytesIO
@@ -14,9 +13,7 @@ from st_image_button import st_image_button
 from teamPredictor import main as predict
 from stdTeamPredictor import predict as stdPred
 
-# required pip installs:
-# pip install streamlit pandas st_image_button requests
-# with python 3.13
+# Requires Python 3.14 and the packages in requirements.txt.
 
 # ffetch()
 bFetch("matches")
@@ -118,7 +115,7 @@ dataPath = "jsons/fetchedData.json"
 allRows = loadAndFlattenData(dataPath)
 
 tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["individual", "data", "ranker", "matches", "STD predictor", "Game Predictor"]
+    ["Individual", "Data", "Ranker", "Matches", "STD Predictor", "Game Predictor"]
 )
 df = pd.DataFrame(pd.read_csv("jsons/avgs.csv"))
 
@@ -197,24 +194,23 @@ with tab1:
 
         df = df[finalColumns]
 
-        with open("jsons/fetchedData.json", "r") as goy:
-            teamsList = [str(t) for t in json.load(goy).get("team", [])]
-
         st.sidebar.header("Filters")
 
         if "teamNumber" in df.columns:
             allTeams = sorted(df["teamNumber"].unique().astype(str))
-            if "selectedTeams" not in st.session_state:
-                st.session_state.selectedTeams = allTeams
+            st.session_state.teamSelector = [
+                team
+                for team in st.session_state.get("teamSelector", allTeams)
+                if team in allTeams
+            ]
 
             if st.sidebar.button("Select All Teams", key="selectAllBtn"):
-                st.session_state.selectedTeams = teamsList
+                st.session_state.teamSelector = allTeams
 
             selectedTeams = st.sidebar.multiselect(
                 "Filter by Team",
                 options=allTeams,
                 key="teamSelector",
-                default=st.session_state.selectedTeams,
             )
 
             df = df[df["teamNumber"].astype(str).isin(selectedTeams)]
@@ -482,21 +478,29 @@ with tab3:
     mainSchedule()
 
 with tab4:
+    availableStdTeams = sorted(
+        {
+            int(row["teamNumber"])
+            for row in allRows
+            if row.get("teamNumber") not in (None, "")
+        }
+    )
+    stdTeamOptions = [None, *availableStdTeams]
     colA, colB, colC = st.columns(3)
     with colA:
         with st.form(key="stdPredictForm"):
             coll0, coll1 = st.columns(2)
             with coll0:
                 st.markdown("### red")
-                st.number_input("r1", key="srTeam1", value=0)
-                st.number_input("r2", key="srTeam2", value=0)
-                st.number_input("r3", key="srTeam3", value=0)
+                st.selectbox("r1", stdTeamOptions, key="stdRedTeam1")
+                st.selectbox("r2", stdTeamOptions, key="stdRedTeam2")
+                st.selectbox("r3", stdTeamOptions, key="stdRedTeam3")
             with coll1:
                 st.markdown("### blue")
-                st.number_input("b1", key="sbTeam1", value=0)
-                st.number_input("b2", key="sbTeam2", value=0)
-                st.number_input("b3", key="sbTeam3", value=0)
-            st.form_submit_button("STD Predict")
+                st.selectbox("b1", stdTeamOptions, key="stdBlueTeam1")
+                st.selectbox("b2", stdTeamOptions, key="stdBlueTeam2")
+                st.selectbox("b3", stdTeamOptions, key="stdBlueTeam3")
+            stdPredictSubmit = st.form_submit_button("STD Predict")
 
     with colB:
         st.markdown("robots ranked in order")
@@ -504,41 +508,68 @@ with tab4:
         st.dataframe(data=dictRank, height=500, key="rankDataframe")
 
     with colC:
-        stdPred(
-            [
-                st.session_state.get("srTeam1"),
-                st.session_state.get("srTeam2"),
-                st.session_state.get("srTeam3"),
-            ],
-            [
-                st.session_state.get("sbTeam1"),
-                st.session_state.get("sbTeam2"),
-                st.session_state.get("sbTeam3"),
-            ],
-        )
-        time.sleep(1)
-        with open("jsons/stdTeamPredictor.json", "r") as goy:
-            stds = json.load(goy)
-        st.markdown(f"## Standard Deviation Predictor")
-        st.markdown(f"### {stds.get('output_cell', '')}")
+        st.markdown("## Standard Deviation Predictor")
+
+        if stdPredictSubmit:
+            redTeams = [
+                st.session_state.get("stdRedTeam1"),
+                st.session_state.get("stdRedTeam2"),
+                st.session_state.get("stdRedTeam3"),
+            ]
+            blueTeams = [
+                st.session_state.get("stdBlueTeam1"),
+                st.session_state.get("stdBlueTeam2"),
+                st.session_state.get("stdBlueTeam3"),
+            ]
+
+            if any(team is None for team in redTeams + blueTeams):
+                st.session_state.stdPrediction = None
+                st.session_state.stdPredictionError = (
+                    "Select all three red and all three blue teams."
+                )
+            elif len(set(redTeams + blueTeams)) < 6:
+                st.session_state.stdPrediction = None
+                st.session_state.stdPredictionError = (
+                    "Select six different teams for the prediction."
+                )
+            else:
+                st.session_state.stdPrediction = stdPred(redTeams, blueTeams)
+                st.session_state.stdPredictionTeams = {
+                    "red": redTeams,
+                    "blue": blueTeams,
+                }
+                st.session_state.stdPredictionError = None
+
+        if st.session_state.get("stdPredictionError"):
+            st.error(st.session_state.stdPredictionError)
+        elif stds := st.session_state.get("stdPrediction"):
+            predictionTeams = st.session_state.stdPredictionTeams
+            st.caption(
+                f"Red: {predictionTeams['red']} | Blue: {predictionTeams['blue']}"
+            )
+            st.markdown(f"### {stds['output_cell']}")
+            calculationData = stds["calculation_data"]
+            st.write(f"Red range: {calculationData['red_range']}")
+            st.write(f"Blue range: {calculationData['blue_range']}")
+        else:
+            st.info("Select six teams and select STD Predict.")
 
 with tab5:
     colL, colM, colN, colO = st.columns(4)
-    rMin, rAvg, rMax, bMin, bAvg, bMax, rWin, bWin = 0, 0, 0, 0, 0, 0, 0, 0
 
     with colL:
         with st.form(key="predictForm"):
             cl0, cl1 = st.columns(2)
             with cl0:
                 st.markdown("### red")
-                st.number_input("r1", key="rTeam1", value=0)
-                st.number_input("r2", key="rTeam2", value=0)
-                st.number_input("r3", key="rTeam3", value=0)
+                st.selectbox("r1", stdTeamOptions, key="gameRedTeam1")
+                st.selectbox("r2", stdTeamOptions, key="gameRedTeam2")
+                st.selectbox("r3", stdTeamOptions, key="gameRedTeam3")
             with cl1:
                 st.markdown("### blue")
-                st.number_input("b1", key="bTeam1", value=0)
-                st.number_input("b2", key="bTeam2", value=0)
-                st.number_input("b3", key="bTeam3", value=0)
+                st.selectbox("b1", stdTeamOptions, key="gameBlueTeam1")
+                st.selectbox("b2", stdTeamOptions, key="gameBlueTeam2")
+                st.selectbox("b3", stdTeamOptions, key="gameBlueTeam3")
             predictSubmit = st.form_submit_button("Predict")
 
     with colM:
@@ -548,46 +579,52 @@ with tab5:
 
     with colN:
         if predictSubmit:
-            if st.session_state.get("rTeam1", 0) != 0:
-                predict(
-                    [
-                        st.session_state.get("rTeam1"),
-                        st.session_state.get("rTeam2"),
-                        st.session_state.get("rTeam3"),
-                    ],
-                    [
-                        st.session_state.get("bTeam1"),
-                        st.session_state.get("bTeam2"),
-                        st.session_state.get("bTeam3"),
-                    ],
+            redTeams = [
+                st.session_state.get("gameRedTeam1"),
+                st.session_state.get("gameRedTeam2"),
+                st.session_state.get("gameRedTeam3"),
+            ]
+            blueTeams = [
+                st.session_state.get("gameBlueTeam1"),
+                st.session_state.get("gameBlueTeam2"),
+                st.session_state.get("gameBlueTeam3"),
+            ]
+
+            if any(team is None for team in redTeams + blueTeams):
+                st.session_state.gamePrediction = None
+                st.session_state.gamePredictionError = (
+                    "Select all three red and all three blue teams."
                 )
-                time.sleep(3)
-                with open("jsons/teamPredictor.json", "r") as goy:
-                    preds = json.load(goy)
+            elif len(set(redTeams + blueTeams)) < 6:
+                st.session_state.gamePrediction = None
+                st.session_state.gamePredictionError = (
+                    "Select six different teams for the prediction."
+                )
+            else:
+                st.session_state.gamePrediction = predict(redTeams, blueTeams)
+                st.session_state.gamePredictionError = None
 
-                reds = preds.get("Red_Alliance", {})
-                blues = preds.get("Blue_Alliance", {})
-
-                rMin = reds.get("Score_Prediction", {}).get("min", 0)
-                rAvg = reds.get("Score_Prediction", {}).get("likely", 0)
-                rMax = reds.get("Score_Prediction", {}).get("max", 0)
-
-                bMin = blues.get("Score_Prediction", {}).get("min", 0)
-                bAvg = blues.get("Score_Prediction", {}).get("likely", 0)
-                bMax = blues.get("Score_Prediction", {}).get("max", 0)
-
-                rWin = reds.get("Win_Chance", 0)
-                bWin = blues.get("Win_Chance", 0)
+        if st.session_state.get("gamePredictionError"):
+            st.error(st.session_state.gamePredictionError)
+        elif st.session_state.get("gamePrediction") is None:
+            st.info("Select six teams and select Predict.")
 
     with colO:
-        st.markdown(f"## RED")
-        st.markdown(f"Min: {rMin}")
-        st.markdown(f"Likely: {rAvg}")
-        st.markdown(f"Max: {rMax}")
-        st.markdown(f"Win chance: {rWin}")
+        if preds := st.session_state.get("gamePrediction"):
+            reds = preds["Red_Alliance"]
+            blues = preds["Blue_Alliance"]
+            redScores = reds["Score_Prediction"]
+            blueScores = blues["Score_Prediction"]
 
-        st.markdown(f"## BLUE")
-        st.markdown(f"Min: {bMin}")
-        st.markdown(f"Likely: {bAvg}")
-        st.markdown(f"Max: {bMax}")
-        st.markdown(f"Win chance: {bWin}")
+            st.caption(f"Red: {reds['Teams']} | Blue: {blues['Teams']}")
+            st.markdown("## RED")
+            st.markdown(f"Min: {redScores['min']}")
+            st.markdown(f"Likely: {redScores['likely']}")
+            st.markdown(f"Max: {redScores['max']}")
+            st.markdown(f"Win chance: {reds['Win_Chance']}")
+
+            st.markdown("## BLUE")
+            st.markdown(f"Min: {blueScores['min']}")
+            st.markdown(f"Likely: {blueScores['likely']}")
+            st.markdown(f"Max: {blueScores['max']}")
+            st.markdown(f"Win chance: {blues['Win_Chance']}")
