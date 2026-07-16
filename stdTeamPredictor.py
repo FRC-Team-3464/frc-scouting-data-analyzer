@@ -130,7 +130,10 @@ def game_predictor(json_input, red_teams, blue_teams, percent_stdev):
     result_text = determine_winner(red_min, red_max, blue_min, blue_max)
 
     return {
-        "output_cell": f"{result_text}s blue {blue_total: .2f} to red {red_total: .2f}",
+        "output_cell": (
+            f"{result_text} — predicted totals: "
+            f"Red {red_total:.2f}, Blue {blue_total:.2f}"
+        ),
         "confidence_factor_used": percent_stdev,
         "calculation_data": {
             "red_range": [round(red_min), round(red_max)],
@@ -143,18 +146,11 @@ def game_predictor(json_input, red_teams, blue_teams, percent_stdev):
 
 def predict(redAlliance, blueAlliance, stdev_input=1.0):
     with open("jsons/fetchedData.json", "r") as inFile:
-        rawJsonString = inFile.read()
-    data = json.loads(rawJsonString)
-    
-    stdev_input = 1.0
+        data = json.load(inFile)
 
-    with open("jsons/stdTeamPredictor.json", "w") as outFile:
-        json.dump(
-            game_predictor(data, redAlliance, blueAlliance, stdev_input),
-            outFile,
-            indent=4,
-        )
+    return game_predictor(data, redAlliance, blueAlliance, stdev_input)
 
 
 if __name__ == "__main__":
-    predict([811, 1768, 1512], [5687, 9644, 131])
+    result = predict([811, 1768, 1512], [5687, 9644, 131])
+    print(json.dumps(result, indent=4))

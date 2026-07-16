@@ -3,4 +3,7 @@ firebase==4.0.1
 firebase_admin==7.1.0
 numpy==2.4.1
 requests==2.32.5
+streamlit==1.59.2
 streamlit-image-button==0.2.2.13
+pillow==12.3.0
+bokeh==3.8.2
