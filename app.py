@@ -9,7 +9,7 @@ from io import BytesIO
 import requests
 from ranking import read_matches
 from bluealliance import fetch as bFetch
-from fetchfromdb import fetch as ffetch
+from fetchfromdb import RefreshNewData, fetch as ffetch
 from avgs import processTeamAverages
 from jsonToCsv import convertAvgsToCsv
 from teamPredictor import main as predict
@@ -20,6 +20,7 @@ from stdTeamPredictor import predict as stdPred
 # ffetch()
 bFetch("matches")
 bFetch("rankings")
+#RefreshNewData()
 with open("jsons/avgs.json", "w") as goy:
     json.dump(processTeamAverages("jsons/fetchedData.json"), goy, indent=4)
 convertAvgsToCsv()

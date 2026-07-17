@@ -1,8 +1,11 @@
+import streamlit as st
 import requests
 import json
 import traceback
 import sys
 import time
+
+from bluealliance import fetchAlreadyCompletedMatches
 
 def getValue(field):
     if isinstance(field, dict):
@@ -166,6 +169,15 @@ def cleanFirestoreData(data):
 
     return data
 
+def fetchMatches(teamNum, matchNum):
+    url = f"https://firestore.googleapis.com/v1/projects/{projectId}/databases/(default)/documents/{teamNum}/{matchNum}"
+    response = requests.get(url, params={"key": apiKey})
+    if response.status_code == 404:
+        return None
+    elif response.status_code != 200:
+        print(f"error {response.status_code}: {response.text}")
+        return None
+    return response.json().get("fields")
 
 def fetch():
     teamNumsRaw = fetchAllDataRecursive("/datas")
@@ -187,7 +199,36 @@ def fetch():
             print(f"\nSuccess! Cleaned data saved to {outputFilename}")
         except Exception as e:
             print(f"Error writing to file: {e}")
+def RefreshNewData():
+    newMatches = fetchAlreadyCompletedMatches(storeData()["fetchedMatches"])
+    for matches in newMatches:
+        for team in matches["teams"]:
+            data = fetchMatches(team, str(matches["matchNumber"]))
+            if data:
+                if team not in storeData()["root"]:
+                    storeData()["root"][team] = {}
+                storeData()["root"][team][str(matches["matchNumber"])] = cleanFirestoreData(data)
+        storeData()["fetchedMatches"].add(str(matches["matchNumber"]))
+    if newMatches:
+        datas = {
+        "team": [int(team) for team in storeData()["root"]],
+        "root": storeData()["root"]
+        }
+        with open ("jsons/fetchedData.json", "w") as f:
+            json.dump(datas, f, indent=4)
 
+@st.cache_resource
+def storeData():
+    dataStore = {"root": {}, "fetchedMatches": set()}
+    try:
+        with open ("jsons/fetchedData.json", "r") as f:
+            oldDataStore = json.load(f)
+        dataStore["root"] = oldDataStore.get("root", {})
+        for teamMatches in dataStore["root"].values():
+            dataStore["fetchedMatches"].update(teamMatches.keys())
+    except FileNotFoundError:
+        pass
+    return dataStore
 
 if __name__ == "__main__":
     start = time.time()
